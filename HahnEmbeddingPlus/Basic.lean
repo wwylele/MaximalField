@@ -45,70 +45,6 @@ theorem exists_valuation_extension.{u} (L : Type u) [Field L] [Algebra K L] :
   ∃ (Γ' : Type u) (_ : LinearOrderedCommGroupWithZero Γ') (V' : Valuation L Γ'),
   Valuation.HasExtension V V' := sorry
 
-/-theorem Valuation.map_geom_sum {x y : K} (h2 : V (x - y) < V x) (n : ℕ) :
-    V (∑ i ∈ Finset.range (n + 1), x ^ i * y ^ (n - i)) = V x ^ n := by
-  obtain rfl | hx := eq_or_ne x 0
-  · simp at h2
-  let e := y - x
-  have : y = x + e := by simp [e]
-  rw [V.map_sub_swap] at h2
-  rw [this] at ⊢ h2
-  rw [add_sub_cancel_left] at h2
-  simp_rw [add_pow]
-  simp_rw [Finset.mul_sum, ← mul_assoc, ← pow_add]
-
-  have : ∑ i ∈ Finset.range (n + 1),
-      ∑ j ∈ Finset.range (n - i + 1), x ^ (i + j) * e ^ (n - i - j) * ((n - i).choose j) =
-      ∑ p ∈ (Finset.range (n + 1)).sigma (fun i ↦ Finset.range (n - i + 1)),
-        x ^ (p.1 + p.2) * e ^ (n - p.1 - p.2) * ((n - p.1).choose p.2) :=
-    (Finset.sum_sigma (Finset.range (n + 1)) (fun i ↦ Finset.range (n - i + 1))
-      (fun (p : (_ : ℕ) × ℕ) ↦ x ^ (p.1 + p.2) * e ^ (n - p.1 - p.2) * ((n - p.1).choose p.2))).symm
-  rw [this]
-
-  have : ∑ p ∈ (Finset.range (n + 1)).sigma (fun i ↦ Finset.range (n - i + 1)),
-        x ^ (p.1 + p.2) * e ^ (n - p.1 - p.2) * ((n - p.1).choose p.2) =
-      ∑ p ∈ (Finset.range (n + 1)).sigma (fun k ↦ Finset.range (k + 1)),
-        x ^ p.1 * e ^ (n - p.1) * ((n - p.2).choose (p.1 - p.2)) := by
-    refine Finset.sum_nbij' (fun p ↦ ⟨p.1 + p.2, p.1⟩)
-      (fun p ↦ ⟨p.2, p.1 - p.2⟩) ?_ ?_ ?_ ?_ ?_
-    · simp only [Finset.mem_sigma, Finset.mem_range, and_imp]
-      grind
-    · simp only [Finset.mem_sigma, Finset.mem_range, and_imp]
-      grind
-    · simp only [Finset.mem_sigma, Finset.mem_range, and_imp]
-      grind
-    · simp only [Finset.mem_sigma, Finset.mem_range, and_imp]
-      grind
-    · grind
-  rw [this, Finset.sum_sigma]
-  simp only
-  simp_rw [mul_assoc, ← Finset.mul_sum]
-
-  have hv {k : ℕ} (h : k < n + 1) :
-      V (x ^ k * (e ^ (n - k) * ∑ i ∈ Finset.range (k + 1), ↑((n - i).choose (k - i)))) =
-      V x ^ k * V e ^ (n - k) := by
-    simp_rw [V.map_mul]
-    norm_cast
-    --rw [V.map_nat]
-    sorry
-
-  rw [V.map_sum_eq_of_lt (show n ∈ Finset.range (n + 1) by simp) ?_ ?_]
-  · rw [hv (by simp)]
-    simp
-  · rw [hv (by simp)]
-    simp [hx]
-  · intro k hk
-    simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton] at hk
-    obtain ⟨hk1, hk2⟩ := hk
-    rw [hv (by simpa using hk1)]
-    rw [hv (by simp)]
-    rw [show V x ^ n * V e ^ (n - n) = V x ^ k * V x ^ (n - k) by
-      simp [← pow_add, Nat.add_sub_cancel' (Nat.le_of_lt_add_one hk1)]]
-    refine mul_lt_mul_of_pos_left ?_ (pow_pos (V.pos_iff.mpr hx) _)
-    apply pow_lt_pow_left₀ h2 (by simp)
-    apply Nat.sub_ne_zero_of_lt
-    apply lt_of_le_of_ne (Nat.le_of_lt_add_one hk1) hk2-/
-
 
 variable {ι : Type*} [LinearOrder ι] --[IsWellOrder ι (· < ·)]
 
@@ -151,7 +87,7 @@ theorem IsPseudoConv.lemma1_prod [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
       · left
         use i
         intro j k hij hjk
-        apply mul_lt_mul_of_nonneg (h j k hjk) (ih j k hij hjk) (by simp) (by simp)
+        apply mul_lt_mul_of_nonneg (h j k hjk) (ih j k hij hjk) zero_le' zero_le'
       · obtain hl | hl := eq_or_lt_of_le (show 0 ≤ V (a l - c) by simp)
         · right
           use l
@@ -289,6 +225,18 @@ theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
   simp_rw [mul_lt_mul_iff_of_pos_left (V'.pos_iff.mpr h0)]
   apply ((IsPseudoConv.iff V V').mp h).lemma1_prod
 
+theorem IsPseudoConv.lemma1_poly_xor [Nonempty ι] (a : ι → K) (p : K[X]) :
+    ¬ ((∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∧
+    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))) := by
+  rw [not_and]
+  intro hp
+  contrapose! hp
+  obtain ⟨i, hi⟩ := hp
+  intro l
+  obtain ⟨i2, hi2⟩ := exists_gt (max i l)
+  refine ⟨max i l, i2, by simp, hi2, ?_⟩
+  exact (hi _ (by simp)).symm.le.trans ((hi _ (max_lt_iff.mp hi2).1.le).le)
+
 theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} :
     HasLimit V a x ↔ HasLimit V' (algebraMap K L ∘ a) (algebraMap K L x) := by
   unfold HasLimit
@@ -335,7 +283,7 @@ theorem IsImmediate.exists_lt (h : IsImmediate V V') {z : L}
   symm at hd
   rw [← sub_eq_zero, ← map_sub, IsLocalRing.residue_eq_zero_iff] at hd
   obtain hd := (Valuation.mem_maximalIdeal_iff _ _).mp hd
-  obtain hd := (mul_lt_mul_iff_left₀ (lt_of_le_of_ne (by simp) (h0.symm))).mpr hd
+  obtain hd := (mul_lt_mul_iff_left₀ (lt_of_le_of_ne zero_le' (h0.symm))).mpr hd
   convert hd
   · rw [← hc, ← map_mul, AddSubgroupClass.coe_sub, sub_mul]
     congrm (V' (?_ - ?_))
@@ -404,6 +352,7 @@ theorem IsImmediate.theorem1 (h : IsImmediate V V') {z : L} (hz : z ∉ (⊥ : S
   convert (hbreadth i).le
   exact hzlimit i
 
+
 /-- Adjoin the limit of `a` to field K to form `K[lim(a)]`,
 and compute the valuation of polynomials in the new field -/
 noncomputable
@@ -414,13 +363,162 @@ def vPoly (a : ι → K) (p : K[X]) : Γ :=
   else
     0
 
+omit [NoMaxOrder ι] in
+theorem vPoly_eq (a : ι → K) (p : K[X]) (l : ι)
+    (h : ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
+    vPoly V a p = V (p.eval (a l)) := by
+  have h' : ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) := ⟨l, h⟩
+  simp [vPoly, h', h'.choose_spec (max l h'.choose) (by simp), h (max l h'.choose) (by simp)]
+
+theorem pigeonhole' {ι : Type*} {K : Type*}
+    {a : ι → K} (s : Set ι) (hs : s.Infinite) (t : Set K) (ht : t.Finite) (h : a '' s ⊆ t) :
+    ∃ k : K, (a ⁻¹' {k}).Infinite := by
+  contrapose! hs
+  simp_rw [Set.not_infinite] at hs ⊢
+  have : s ⊆ ⋃ k ∈ t, a ⁻¹' {k} := by
+    intro x hx
+    have : a x ∈ a '' s := ⟨x, hx, rfl⟩
+    have : a x ∈ t := h this
+    simp_rw [Set.mem_iUnion]
+    exact ⟨a x, this, by simp⟩
+  refine Set.Finite.subset ?_ this
+  exact Set.Finite.biUnion ht (fun k _ => hs k)
+
+theorem pigeonhole {ι : Type*} [LinearOrder ι] {K : Type*}
+    {a : ι → K} (s : Set ι) (hs : s.Infinite) (t : Set K) (ht : t.Finite) (h : a '' s ⊆ t) :
+    ∃ i j k, i < j ∧ j < k ∧ a i = a j ∧ a j = a k := by
+  obtain ⟨u, hu⟩ := pigeonhole' s hs t ht h
+  obtain ⟨i, hi⟩ := hu.nonempty
+  rw [Set.mem_preimage, Set.mem_singleton_iff] at hi
+  obtain ⟨j, hj⟩ := (hu.diff (Set.finite_singleton i)).nonempty
+  obtain ⟨hj, hji⟩ : a j = u ∧ j ≠ i := by simpa using hj
+  obtain ⟨k, hk⟩ := ((hu.diff (Set.finite_singleton i)).diff (Set.finite_singleton j)).nonempty
+  obtain ⟨⟨hk, hki⟩, hkj⟩ : (a k = u ∧ k ≠ i) ∧ k ≠ j := by simpa using hk
+  obtain hij | hij := lt_or_gt_of_ne hji.symm <;> obtain hjk | hjk := lt_or_gt_of_ne hkj.symm
+  · use i, j, k, hij, hjk
+    simp [hi, hj, hk]
+  · obtain hik | hik := lt_or_gt_of_ne hki.symm
+    · use i, k, j, hik, hjk
+      simp [hi, hj, hk]
+    · use k, i, j, hik, hij
+      simp [hi, hj, hk]
+  · obtain hik | hik := lt_or_gt_of_ne hki.symm
+    · use j, i, k, hij, hik
+      simp [hi, hj, hk]
+    · use j, k, i, hjk, hik
+      simp [hi, hj, hk]
+  · use k, j, i, hjk, hij
+    simp [hi, hj, hk]
+
+theorem IsPseudoConv.exists_poly_ne_zero [Nonempty ι] {a : ι → K}
+    (h : IsPseudoConv V a) {p : K[X]} (hp : p ≠ 0) (i : ι) :
+    ∃ j, i ≤ j ∧ p.eval (a j) ≠ 0 := by
+  classical
+  by_contra! h0
+  suffices ∃ i j k, i < j ∧ j < k ∧ a i = a j ∧ a j = a k by
+    obtain ⟨i, j, k, hij, hjk, hij2, hjk2⟩ := this
+    specialize h hij hjk
+    simp [hij2, hjk2] at h
+  have h0' : a '' Set.Ici i ⊆ (p.roots.toFinset : Set _) := by
+    intro j hj
+    simp_rw [Set.mem_image, Set.mem_Ici] at hj
+    obtain ⟨x, hx, hxj⟩ := hj
+    rw [← hxj]
+    simpa [hp] using h0 x hx
+  apply pigeonhole (Set.Ici i) (Set.Ici_infinite _) ((p.roots.toFinset : Set _)) (by simp) h0'
+
+theorem vPoly_eq_zero [Nonempty ι] {a : ι → K} (ha : IsPseudoConv V a) (p : K[X]) :
+    vPoly V a p = 0 ↔ p = 0 ∨ (¬ ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) := by
+  constructor
+  · intro h
+    apply or_not_of_imp
+    intro h'
+    obtain ⟨l, hl⟩ := h'
+    rw [vPoly_eq V a p l hl] at h
+    rw [h] at hl
+    contrapose! hl with h0
+    obtain ⟨i, hi, hi2⟩ := IsPseudoConv.exists_poly_ne_zero V ha h0 l
+    use i, hi
+    symm
+    simpa using hi2
+  · intro h
+    obtain rfl | h := h
+    · simp [vPoly]
+    · simp [vPoly, h]
+
+theorem vPoly_mul_aux [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (p q : K[X])
+    (hp : ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) :
+    vPoly V a (p * q) = vPoly V a p * vPoly V a q := by
+  obtain rfl | hq0 := eq_or_ne q 0
+  · simp [vPoly]
+  have hp' : ¬ ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) :=
+    not_and.mp (IsPseudoConv.lemma1_poly_xor V a p) hp
+  suffices ¬ ∃ l, ∀ i, l ≤ i → V ((p * q).eval (a l)) = V ((p * q).eval (a i)) by
+    simp only [vPoly, hp', this, reduceDIte, zero_mul]
+  suffices ∃ i, ∀ (j k : ι), i ≤ j → j < k → V ((p * q).eval (a k) ) < V ((p * q).eval (a j)) from
+    not_and.mp (IsPseudoConv.lemma1_poly_xor V a (p * q)) this
+  obtain ⟨pi, hp⟩ := hp
+  obtain ⟨qi, hq⟩ | ⟨qi, hq⟩ := IsPseudoConv.lemma1_poly V h q
+  · use max pi qi
+    intro j k hj hk
+    simpa using mul_lt_mul_of_nonneg (hp j k (le_of_max_le_left hj) hk)
+      (hq j k (le_of_max_le_right hj) hk) zero_le' zero_le'
+  · use max pi qi
+    intro j k hj hk
+    simp_rw [Polynomial.eval_mul, map_mul]
+    rw [← hq j (le_of_max_le_right hj), ← hq k ((le_of_max_le_right hj).trans hk.le)]
+    apply mul_lt_mul_of_pos_right (hp j k (le_of_max_le_left hj) hk)
+    apply lt_of_le_of_ne zero_le'
+    contrapose! hq
+    rw [← hq]
+    suffices ∃ i, qi ≤ i ∧ Polynomial.eval (a i) q ≠ 0 by
+      obtain ⟨i, hqi, hi⟩ := this
+      refine ⟨i, hqi, ?_⟩
+      symm
+      simpa using hi
+    apply h.exists_poly_ne_zero V hq0 qi
+
 theorem vPoly_mul [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (p q : K[X]) :
     vPoly V a (p * q) = vPoly V a p * vPoly V a q := by
-  obtain hp | hp := IsPseudoConv.lemma1_poly V h p
-  ·
-    sorry
-  ·
-    sorry
+  obtain hp | ⟨pi, hp⟩ := IsPseudoConv.lemma1_poly V h p
+  · apply vPoly_mul_aux V h p q hp
+  obtain hq | ⟨qi, hq⟩ := IsPseudoConv.lemma1_poly V h q
+  · rw [mul_comm p, mul_comm (vPoly V a p)]
+    apply vPoly_mul_aux V h q p hq
+  rw [vPoly_eq V a p (max pi qi) fun i hi ↦ by
+    rw [← hp (max pi qi) (by simp)]
+    rw [← hp i (le_of_max_le_left hi)]]
+  rw [vPoly_eq V a q (max pi qi) fun i hi ↦ by
+    rw [← hq (max pi qi) (by simp)]
+    rw [← hq i (le_of_max_le_right hi)]]
+  rw [vPoly_eq V a (p * q) (max pi qi) ?_]
+  · simp
+  intro i hi
+  simp_rw [Polynomial.eval_mul, V.map_mul]
+  rw [← hp (max pi qi) (by simp)]
+  rw [← hp i (le_of_max_le_left hi)]
+  rw [← hq (max pi qi) (by simp)]
+  rw [← hq i (le_of_max_le_right hi)]
+
+omit [NoMaxOrder ι] in
+theorem vPoly_add [Nonempty ι] {a : ι → K} (p q : K[X])
+    (hp : ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (hq : ∃ l, ∀ i, l ≤ i → V (q.eval (a l)) = V (q.eval (a i)))
+    (hpq : ∃ l, ∀ i, l ≤ i → V ((p + q).eval (a l)) = V ((p + q).eval (a i))) :
+    vPoly V a (p + q) ≤ max (vPoly V a p) (vPoly V a q) := by
+  obtain ⟨pi, hp⟩ := hp
+  obtain ⟨qi, hq⟩ := hq
+  obtain ⟨pqi, hpq⟩ := hpq
+  rw [vPoly_eq V a p (max (max pi qi) pqi) fun i hi ↦ by
+    rw [← hp i (le_of_max_le_left (le_of_max_le_left hi))]
+    rw [← hp (max (max pi qi) pqi) (by simp)]]
+  rw [vPoly_eq V a q (max (max pi qi) pqi) fun i hi ↦ by
+    rw [← hq i (le_of_max_le_right (le_of_max_le_left hi))]
+    rw [← hq (max (max pi qi) pqi) (by simp)]]
+  rw [vPoly_eq V a (p + q) (max (max pi qi) pqi) fun i hi ↦ by
+    rw [← hpq i (le_of_max_le_right hi)]
+    rw [← hpq (max (max pi qi) pqi) (by simp)]]
+  simp
 
 noncomputable
 def vTransc {a : ι → K} (h : IsPseudoConv V a)
