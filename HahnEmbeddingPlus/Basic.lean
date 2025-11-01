@@ -269,9 +269,38 @@ theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
   not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
 theorem IsPseudoConv.poly_eventually [Nonempty ι] {a : ι → K}
-    (ha : IsPseudoConv V a) (p : K[X]) :
+    (ha : IsPseudoConv V a) {p : K[X]} (hp0 : p ≠ 0) :
     ∃ l, ∀ ⦃i j k⦄, l ≤ i → i < j → j < k →
-    V (p.eval (a j) - p.eval (a k)) < V (p.eval (a i) - p.eval (a j)) := by sorry
+    V (p.eval (a j) - p.eval (a k)) < V (p.eval (a i) - p.eval (a j)) := by
+  obtain ⟨Γ', _, V', _⟩ := exists_valuation_extension V (AlgebraicClosure K)
+  by_cases hlimit : ∃ (x : AlgebraicClosure K) (lb : ι),
+    HasLimit V' (fun (i : Set.Ici lb) ↦ algebraMap K (AlgebraicClosure K) (a i)) x
+  · obtain ⟨x, lb, hx⟩ := hlimit
+    sorry
+  · have hconst : ∃ l : ι, ∀ i : ι, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) := by
+      simp_rw [← Valuation.HasExtension.val_map_eq_iff V V']
+      simp_rw [← Polynomial.aeval_algebraMap_apply_eq_algebraMap_eval]
+      simp_rw [Polynomial.aeval_eq_prod_aroots_sub_of_splits (IsAlgClosed.splits_codomain p)]
+      simp [hp0]
+
+      sorry
+
+    /-have hp : ¬ ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) := by
+      contrapose! hlimit with h
+      obtain ⟨l, h⟩ := h
+      have hlimit0 : HasLimit V (fun (i : Set.Ici l) ↦ p.eval (a i)) 0 := by
+        unfold HasLimit
+        intro i
+        unfold γ
+        rw [zero_sub, Valuation.map_neg]
+        symm
+        apply Valuation.map_sub_eq_of_lt_left
+        simp only
+        apply h _ _ i.prop
+        simpa using Exists.choose_spec _
+      sorry-/
+    sorry
+
 
 theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} :
     HasLimit V a x ↔ HasLimit V' (algebraMap K L ∘ a) (algebraMap K L x) := by
@@ -748,6 +777,9 @@ theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     {p : K[X]} (hp : vTransc V h htran p = 1) :
     ∃ x : K, V x = 1 ∧ vTransc V h htran (RatFunc.C x - p) < 1 := by
   rw [vTransc_polynomial] at hp
+  have hp0 : p ≠ 0 := by
+    contrapose! hp
+    simp [hp, vPoly]
   have hv (x : K) : vTransc V h htran (RatFunc.C x - p) =
       vPoly V a (Polynomial.C x - p) := by
     suffices (RatFunc.C x - p : RatFunc K) = (Polynomial.C x - p : Polynomial K) by
@@ -756,7 +788,7 @@ theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     simp
   simp_rw [hv]
   obtain ⟨m, hm⟩ := htran p
-  obtain ⟨i, hi⟩ := IsPseudoConv.poly_eventually V h p
+  obtain ⟨i, hi⟩ := IsPseudoConv.poly_eventually V h hp0
   obtain ⟨j, hj⟩ := exists_gt i
   obtain ⟨jm, hjm⟩ := exists_gt (max j m)
   obtain ⟨k, hk⟩ := exists_gt jm
