@@ -69,26 +69,38 @@ theorem IsPseudoConv.const_sub {a : ι → K} (h : IsPseudoConv V a) (c : K) :
   intro i j k hij hjk
   convert h hij hjk using 1 <;> simp [Valuation.map_sub_swap]
 
-theorem IsPseudoConv.lemma1 {a : ι → K} (h : IsPseudoConv V a) :
-    (∀ i j, i < j → V (a j) < V (a i)) ∨ (∃ l, ∀ i, l ≤ i → V (a l) = V (a i)) := by
+theorem IsPseudoConv.lemma1 [NoMaxOrder ι] {a : ι → K} (h : IsPseudoConv V a) :
+    (∀ i j, i < j → V (a j) < V (a i)) ∨ (∃ l, (∀ i, l ≤ i → V (a l) = V (a i)) ∧ V (a l) ≠ 0) := by
   rw [or_iff_not_imp_left]
   intro hleft
   simp_rw [not_forall, exists_prop, not_lt] at hleft
   obtain ⟨i, j, hlt, hle⟩ := hleft
   use j
-  intro k hk
-  obtain rfl | hk := eq_or_lt_of_le hk
-  · simp
-  contrapose! h
-  rw [← V.map_neg (a k)] at h
-  obtain h1 := V.map_add_of_distinct_val h
-  rw [Valuation.map_neg, ← sub_eq_add_neg] at h1 -- extract this
-  have h1 : V (a j) ≤ V (a j - a k) := by  simp [h1]
-  obtain h2 := V.map_sub_le hle le_rfl
-  obtain h3 := h2.trans h1
-  simpa [IsPseudoConv] using ⟨i, j, hlt, k, hk, h3⟩
+  have hleft (k) (hk : j ≤ k) : V (a j) = V (a k) := by
+    obtain rfl | hk := eq_or_lt_of_le hk
+    · simp
+    contrapose! h
+    rw [← V.map_neg (a k)] at h
+    obtain h1 := V.map_add_of_distinct_val h
+    rw [Valuation.map_neg, ← sub_eq_add_neg] at h1 -- extract this
+    have h1 : V (a j) ≤ V (a j - a k) := by  simp [h1]
+    obtain h2 := V.map_sub_le hle le_rfl
+    obtain h3 := h2.trans h1
+    simpa [IsPseudoConv] using ⟨i, j, hlt, k, hk, h3⟩
+  constructor
+  · exact hleft
+  by_contra! h0
+  rw [h0] at hleft
+  obtain ⟨k, hk⟩ := exists_gt j
+  obtain ⟨l, hl⟩ := exists_gt k
+  obtain hj0 := (map_eq_zero _).mp (hleft j (le_refl _)).symm
+  obtain hk0 := (map_eq_zero _).mp (hleft k hk.le).symm
+  obtain hl0 := (map_eq_zero _).mp (hleft l (hk.trans hl).le).symm
+  specialize h hk hl
+  simp [hj0, hk0, hl0] at h
 
-theorem IsPseudoConv.lemma1_prod [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (s : Multiset K) :
+theorem IsPseudoConv.lemma1_prod [NoMaxOrder ι] [Nonempty ι] {a : ι → K}
+    (h : IsPseudoConv V a) (s : Multiset K) :
     (∃ i, ∀ j k, i ≤ j → j < k → V (s.map fun c ↦ a k - c).prod < V (s.map fun c ↦ a j - c).prod) ∨
     (∃ l, ∀ i, l ≤ i → V (s.map fun c ↦ a l - c).prod = V (s.map fun c ↦ a i - c).prod) := by
   induction s using Multiset.induction with
@@ -96,7 +108,7 @@ theorem IsPseudoConv.lemma1_prod [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
   | cons c s ih =>
     simp_rw [Multiset.map_cons, Multiset.prod_cons, V.map_mul]
     obtain ⟨i, ih⟩ | ⟨i, ih⟩ := ih
-    · obtain h | ⟨l, h⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
+    · obtain h | ⟨l, h, _⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
       · left
         use i
         intro j k hij hjk
@@ -113,7 +125,7 @@ theorem IsPseudoConv.lemma1_prod [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
         rw [← h j (le_of_max_le_right hij)]
         rw [← h k ((le_of_max_le_right hij).trans hjk.le)]
         apply mul_lt_mul_of_pos_left (ih j k (le_of_max_le_left hij) hjk) hl
-    · obtain h | ⟨l, h⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
+    · obtain h | ⟨l, h, _⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
       · obtain hl | hl := eq_or_lt_of_le
           (show 0 ≤ V (Multiset.map (fun c ↦ a i - c) s).prod by simp)
         · right
@@ -139,24 +151,31 @@ theorem IsPseudoConv.lemma1_prod [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
           · exact ih j (le_of_max_le_left hj)
 
 theorem lemma1_prod' [Nonempty ι] {a : ι → K} (s : Multiset K)
-    (hs : ∀ c ∈ s, ∃ l, ∀ i, l ≤ i → V (a l - c) = V (a i - c)) :
-    (∃ l, ∀ i, l ≤ i → V (s.map fun c ↦ a l - c).prod = V (s.map fun c ↦ a i - c).prod) := by
+    (hs : ∀ c ∈ s, ∃ l, (∀ i, l ≤ i → V (a l - c) = V (a i - c)) ∧ V (a l - c) ≠ 0) :
+    ∃ l, (∀ i, l ≤ i → V (s.map fun c ↦ a l - c).prod = V (s.map fun c ↦ a i - c).prod)
+        ∧ V (s.map fun c ↦ a l - c).prod ≠ 0 := by
   induction s using Multiset.induction with
   | empty => simp
   | cons c s ih =>
     simp_rw [Multiset.mem_cons, forall_eq_or_imp] at hs
-    obtain ⟨⟨l, hl⟩, hs⟩ := hs
+    obtain ⟨⟨l, hl, hl2⟩, hs⟩ := hs
     simp_rw [Multiset.map_cons, Multiset.prod_cons, V.map_mul]
-    obtain ⟨i, ih⟩ := ih hs
+    obtain ⟨i, ih, ih2⟩ := ih hs
     use max i l
-    intro j hj
-    congrm ?_ * ?_
-    · trans V (a l - c)
-      · exact (hl (max i l) (by simp)).symm
-      · exact hl j (le_of_max_le_right hj)
-    · trans V (Multiset.map (fun c ↦ a i - c) s).prod
-      · exact (ih (max i l) (by simp)).symm
-      · exact ih j (le_of_max_le_left hj)
+    constructor
+    · intro j hj
+      congrm ?_ * ?_
+      · trans V (a l - c)
+        · exact (hl (max i l) (by simp)).symm
+        · exact hl j (le_of_max_le_right hj)
+      · trans V (Multiset.map (fun c ↦ a i - c) s).prod
+        · exact (ih (max i l) (by simp)).symm
+        · exact ih j (le_of_max_le_left hj)
+    · apply mul_ne_zero
+      · rw [← hl (max i l) (by simp)]
+        exact hl2
+      · rw [← ih (max i l) (by simp)]
+        exact ih2
 
 theorem IsPseudoConv.lemma2 {a : ι → K} (h : IsPseudoConv V a)
     {i j k : ι} (hij : i < j) (hjk : j ≤ k) :
@@ -246,7 +265,6 @@ theorem IsPseudoConv.Ici {a : ι → K} (h : IsPseudoConv V a) (l : ι) :
   intro i j k hij hjk
   apply h (by simpa using hij) (by simpa using hjk)
 
-omit [NoMaxOrder ι] in
 theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
     (h : IsPseudoConv V a) (p : K[X]) :
     (∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∨
@@ -336,17 +354,25 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       sorry-/
     sorry
   · have hconst (p : Polynomial K) :
-        ∃ l : ι, ∀ i : ι, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) := by
+        ∃ l : ι, (∀ i : ι, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ∧
+        (p = 0 ∨ V (p.eval (a l)) ≠ 0) := by
       obtain rfl | hp0 := eq_or_ne p 0
       · simp
+      simp only [hp0, false_or]
       simp_rw [← Valuation.HasExtension.val_map_eq_iff V V']
+      have hl (l : ι) : V (p.eval (a l)) ≠ 0 ↔
+          V' ((algebraMap K (AlgebraicClosure K)) (Polynomial.eval (a l) p)) ≠ 0 := by simp
+      simp_rw [hl]
+
       simp_rw [← Polynomial.aeval_algebraMap_apply_eq_algebraMap_eval]
       simp_rw [Polynomial.aeval_eq_prod_aroots_sub_of_splits (IsAlgClosed.splits_codomain p)]
-      suffices ∃ l, ∀ (i : ι), l ≤ i →
+      suffices ∃ l, (∀ (i : ι), l ≤ i →
         V' (Multiset.map (fun c ↦ (algebraMap K (AlgebraicClosure K)) (a l) - c)
           (p.aroots (AlgebraicClosure K))).prod =
         V' (Multiset.map (fun c ↦ (algebraMap K (AlgebraicClosure K)) (a i) - c)
-          (p.aroots (AlgebraicClosure K))).prod by simpa [hp0]
+          (p.aroots (AlgebraicClosure K))).prod) ∧
+        V' (Multiset.map (fun c ↦ (algebraMap K (AlgebraicClosure K)) (a l) - c)
+          (p.aroots (AlgebraicClosure K))).prod ≠ 0 by simpa [hp0]
       apply lemma1_prod'
       intro c hc
       refine Or.resolve_left (IsPseudoConv.lemma1 V'
@@ -377,10 +403,11 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       rw [Finset.sum_range_eq_add_Ico _ (by simp)]
       simp
     simp_rw [this]
-    have hconsthasse (n : ℕ) : ∃ l : ι, ∀ i : ι, l ≤ i →
-        V ((p.hasseDeriv n).eval (a l)) = V ((p.hasseDeriv n).eval (a i)) :=
+    have hconsthasse (n : ℕ) : ∃ l : ι, (∀ i : ι, l ≤ i →
+        V ((p.hasseDeriv n).eval (a l)) = V ((p.hasseDeriv n).eval (a i)))
+        ∧ (p.hasseDeriv n = 0 ∨ V ((p.hasseDeriv n).eval (a l)) ≠ 0) :=
       hconst (p.hasseDeriv n)
-    choose fl hfl using hconsthasse
+    choose fl hfl hfl' using hconsthasse
     suffices ∃ m ∈ Finset.Ico 1 (p.natDegree + 1), ∃ l, ∀ i j, l ≤ i → i < j →
         ∀ n ∈ Finset.Ico 1 (p.natDegree + 1) \ {m},
         V (Polynomial.eval (a i) ((Polynomial.hasseDeriv n) p) * (a j - a i) ^ n) <
@@ -392,7 +419,7 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       obtain hli : l ≤ i := le_of_max_le_right hmli
       obtain hij' := h i j hli hij
       obtain hjk' := h j k (hli.trans hij.le) hjk
-      rw [Valuation.map_sum_eq_of_lt' V hm hjk' ]
+      rw [Valuation.map_sum_eq_of_lt' V hm hjk']
       rw [Valuation.map_sum_eq_of_lt' V hm hij']
       simp_rw [V.map_mul, V.map_pow]
       obtain hmi := le_of_max_le_left hmli
@@ -420,13 +447,14 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     simp_rw [V.map_mul, V.map_pow]
     suffices ∃ m ∈ Finset.Ico 1 (p.natDegree + 1),
       ∃ l, ∀ (i j : ι), l ≤ i → i < j → ∀ n ∈ Finset.Ico 1 (p.natDegree + 1) \ {m},
-        V (((Polynomial.hasseDeriv n) p).eval (a (fl n))) * V (a j - a i) ^ n <
-        V (((Polynomial.hasseDeriv m) p).eval (a (fl m))) * V (a j - a i) ^ m by
+        V (((Polynomial.hasseDeriv n) p).eval (a (fl n))) * γ V a i ^ n <
+        V (((Polynomial.hasseDeriv m) p).eval (a (fl m))) * γ V a i ^ m by
       obtain ⟨m, hm, l, h⟩ := this
       use m, hm, max l ((Finset.Ico 1 (p.natDegree + 1)).sup' (by simpa using hd0) fl)
       intro i j hli hij
       obtain ⟨hli, hmi⟩ := max_le_iff.mp hli
       rw [Finset.sup'_le_iff] at hmi
+      rw [show V (a j - a i) = γ V a i by rw [V.map_sub_swap, ha.γ_eq V hij]]
       convert h i j hli hij using 4 with n hn
       · exact (hfl _ _ <| hmi _ (Finset.mem_sdiff.mp hn).1).symm
       · exact (hfl _ _ <| hmi _ hm).symm
@@ -879,11 +907,13 @@ theorem vTransc_hasLimit [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     change (RatFunc.X - RatFunc.C (a i) : RatFunc K) =
       algebraMap _ _ (Polynomial.X - Polynomial.C (a i) : K[X])
     simp
-  suffices ∀ (i : ι), ∃ j, i ≤ j ∧
-    vTransc V h htran (RatFunc.X - RatFunc.C (a i)) ≠
-    vTransc V h htran (RatFunc.X - RatFunc.C (a j)) by simpa
-  simp_rw [hv]
+  rw [not_exists]
   intro i
+  apply not_and_of_not_left
+  suffices ∃ j, i ≤ j ∧
+    (vTransc V h htran (RatFunc.X - RatFunc.C (a i)) ≠
+    vTransc V h htran (RatFunc.X - RatFunc.C (a j))) by simpa
+  simp_rw [hv]
   obtain ⟨j, hj⟩ := exists_gt i
   refine ⟨j, hj.le, ?_⟩
   obtain ⟨k, hk⟩ := exists_gt j
