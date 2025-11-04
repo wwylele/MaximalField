@@ -312,16 +312,6 @@ theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
     ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) :=
   not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
-theorem Valuation.map_sum_eq_of_lt' {R : Type*} {Γ₀ : Type*}
-    [Ring R] [LinearOrderedCommMonoidWithZero Γ₀]
-    (v : Valuation R Γ₀) {ι : Type*} [DecidableEq ι] {s : Finset ι} {f : ι → R} {j : ι}
-    (hj : j ∈ s) (hf : ∀ i ∈ s \ {j}, v (f i) < v (f j)) :
-    v (∑ i ∈ s, f i) = v (f j) := by
-  obtain h0 | h0 := eq_or_ne (v (f j)) 0
-  · have hf : ∀ i ∈ s, i = j := by simpa [h0] using hf
-    congrm v $(Finset.sum_eq_single_of_mem _ hj fun b hb hb' ↦ (hb' (hf b hb)).elim)
-  exact Valuation.map_sum_eq_of_lt v hj h0 (by simpa using hf)
-
 theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     (ha : IsPseudoConv V a) {p : K[X]} (hd0 : 0 < p.natDegree) :
     ∃ l, ∀ ⦃i j k⦄, l ≤ i → i < j → j < k →
@@ -410,8 +400,8 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     choose fl hfl hfl' using hconsthasse
     suffices ∃ m ∈ Finset.Ico 1 (p.natDegree + 1), ∃ l, ∀ i j, l ≤ i → i < j →
         ∀ n ∈ Finset.Ico 1 (p.natDegree + 1) \ {m},
-        V (Polynomial.eval (a i) ((Polynomial.hasseDeriv n) p) * (a j - a i) ^ n) <
-        V (Polynomial.eval (a i) ((Polynomial.hasseDeriv m) p) * (a j - a i) ^ m) by
+        V ((p.hasseDeriv n).eval (a i) * (a j - a i) ^ n) <
+        V ((p.hasseDeriv m).eval (a i) * (a j - a i) ^ m) by
       obtain ⟨m, hm, l, h⟩ := this
       obtain ⟨h1m, hmp⟩ : 1 ≤ m ∧ m < p.natDegree + 1 := by simpa using hm
       use max (fl m) l
@@ -419,8 +409,8 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       obtain hli : l ≤ i := le_of_max_le_right hmli
       obtain hij' := h i j hli hij
       obtain hjk' := h j k (hli.trans hij.le) hjk
-      rw [Valuation.map_sum_eq_of_lt' V hm hjk']
-      rw [Valuation.map_sum_eq_of_lt' V hm hij']
+      rw [Valuation.map_sum_eq_of_lt V hm hjk']
+      rw [Valuation.map_sum_eq_of_lt V hm hij']
       simp_rw [V.map_mul, V.map_pow]
       obtain hmi := le_of_max_le_left hmli
       rw [← hfl m i hmi]
@@ -433,7 +423,7 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
         rw [le_zero_iff, map_eq_zero] at h0
         specialize hfl m
         conv at hfl => intro i h; rw [Eq.comm]
-        have hfl0 : ∀ i, fl m ≤ i → Polynomial.eval (a i) ((Polynomial.hasseDeriv m) p) = 0 := by
+        have hfl0 : ∀ i, fl m ≤ i → (p.hasseDeriv m).eval (a i)  = 0 := by
           simpa [h0] using hfl
         specialize h (max l (fl m))
         have h : ∀ (j : ι), l < j → fl m < j → ∀ (n : ℕ), 1 ≤ n → n < p.natDegree + 1 → n = m := by
@@ -446,19 +436,59 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
         exact hdegree.trans h1.symm
     simp_rw [V.map_mul, V.map_pow]
     suffices ∃ m ∈ Finset.Ico 1 (p.natDegree + 1),
-      ∃ l, ∀ (i j : ι), l ≤ i → i < j → ∀ n ∈ Finset.Ico 1 (p.natDegree + 1) \ {m},
-        V (((Polynomial.hasseDeriv n) p).eval (a (fl n))) * γ V a i ^ n <
-        V (((Polynomial.hasseDeriv m) p).eval (a (fl m))) * γ V a i ^ m by
+      ∃ l, ∀ i, l ≤ i → ∀ n ∈ Finset.Ico 1 (p.natDegree + 1) \ {m},
+        V ((p.hasseDeriv n).eval (a (fl n))) * γ V a i ^ n <
+        V ((p.hasseDeriv m).eval (a (fl m))) * γ V a i ^ m by
       obtain ⟨m, hm, l, h⟩ := this
       use m, hm, max l ((Finset.Ico 1 (p.natDegree + 1)).sup' (by simpa using hd0) fl)
       intro i j hli hij
       obtain ⟨hli, hmi⟩ := max_le_iff.mp hli
       rw [Finset.sup'_le_iff] at hmi
       rw [show V (a j - a i) = γ V a i by rw [V.map_sub_swap, ha.γ_eq V hij]]
-      convert h i j hli hij using 4 with n hn
+      convert h i hli using 4 with n hn
       · exact (hfl _ _ <| hmi _ (Finset.mem_sdiff.mp hn).1).symm
       · exact (hfl _ _ <| hmi _ hm).symm
-
+    classical
+    let hasse0 := (Finset.Ico 1 (p.natDegree + 1)).filter fun n ↦ p.hasseDeriv n ≠ 0
+    suffices ∃ m ∈ hasse0, ∃ l, ∀ i, l ≤ i → ∀ n ∈ hasse0 \ {m},
+        V ((p.hasseDeriv n).eval (a (fl n))) * γ V a i ^ n <
+        V ((p.hasseDeriv m).eval (a (fl m))) * γ V a i ^ m by
+      obtain ⟨m, hm, l, h⟩ := this
+      have hm : (1 ≤ m ∧ m < p.natDegree + 1) ∧ p.hasseDeriv m ≠ 0 := by
+        simpa [hasse0] using hm
+      refine ⟨m, by simpa using hm.1, l, ?_⟩
+      intro i hli n hn
+      have hn : (1 ≤ n ∧ n < p.natDegree + 1) ∧ n ≠ m := by simpa using hn
+      obtain h0 | h0 := eq_or_ne (p.hasseDeriv n) 0
+      · suffices 0 < V ((p.hasseDeriv m).eval (a (fl m))) * γ V a i ^ m by simpa [h0]
+        apply mul_pos
+        · exact lt_of_le_of_ne (by simp) ((hfl' m).resolve_left hm.2).symm
+        · apply pow_pos
+          apply ha.γ_pos
+      apply h i hli n
+      simpa [hasse0] using ⟨⟨⟨hn.1.1, hn.1.2⟩, h0⟩, hn.2⟩
+    have hnonempty : hasse0.Nonempty := by
+      use p.natDegree
+      suffices 1 ≤ p.natDegree ∧ p ≠ 0 by simpa [hasse0, Polynomial.hasseDeriv_natDegree_eq_C]
+      constructor
+      · grind
+      · contrapose! hd0
+        simp [hd0]
+    have hunit (n : ℕ) (hn : n ∈ hasse0) : IsUnit (V ((p.hasseDeriv n).eval (a (fl n)))) := by
+      have hn : (1 ≤ n ∧ n < p.natDegree + 1) ∧ p.hasseDeriv n ≠ 0 := by
+        simpa [hasse0] using hn
+      simpa using (hfl' n).resolve_left hn.2
+    have hγunit (i : ι) : IsUnit (γ V a i) := by simpa using (ha.γ_pos V i).ne.symm
+    choose w hw using hunit
+    choose g hg using hγunit
+    suffices ∃ (m : ℕ) (hm : m ∈ hasse0), ∃ l, ∀ i, l ≤ i → ∀ n, (hn : n ∈ hasse0 \ {m}) →
+        (w n (Finset.mem_sdiff.mp hn).1) * g i ^ n < (w m hm) * g i ^ m by
+      obtain ⟨m, hm, l, h⟩ := this
+      refine ⟨m, hm, l, ?_⟩
+      intro i hli n hn
+      rw [← hw n (Finset.mem_sdiff.mp hn).1, ← hw m hm, ← hg]
+      norm_cast
+      exact h i hli n hn
     sorry
 
 
