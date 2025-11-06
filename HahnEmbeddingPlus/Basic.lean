@@ -312,6 +312,33 @@ theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
     ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) :=
   not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
+theorem lemma4 {G : Type*} [CommGroup G] [LinearOrder G] [IsOrderedMonoid G]
+    {ι : Type*} [LinearOrder ι] [NoMaxOrder ι]
+    {t : Finset ℕ} (ht : t.Nonempty) (c : ℕ → G) {a : ι → G} (ha : StrictAnti a) :
+    ∃ m ∈ t, ∃ l, ∀ i, l ≤ i → ∀ n ∈ t \ {m}, c n * a i ^ n < c m * a i ^ m := by
+  let Amn (m n : ℕ) := {x | c m * x ^ m < c n * x ^ n}
+  let Amn' (m n : ℕ) (hmn : m < n) : UpperSet G := {
+    carrier := Amn m n
+    upper' := by
+      intro a b hab
+      suffices c m * a ^ m < c n * a ^ n → c m * b ^ m < c n * b ^ n by simpa [Amn]
+      intro h
+      rw [← lt_mul_inv_iff_mul_lt, mul_assoc, ← pow_sub _ hmn.le] at ⊢ h
+      apply h.trans_le
+      rw [mul_le_mul_iff_left]
+      rw [pow_le_pow_iff_left (Nat.sub_ne_zero_of_lt hmn)]
+      exact hab
+  }
+  classical
+  let Af := (t ×ˢ t).filter fun mn ↦ ∃ (h : mn.1 < mn.2) (i : ι), a i ∉ Amn' mn.1 mn.2 h
+
+  let A := ⨅ (m : ℕ) (n : ℕ) (h : m < n) (hlim : ∃ i, a i ∉ Amn' m n h), Amn' m n h
+  have : ∃ l, a l ∉ A := by
+    --use ⨅ (m : ℕ) (n : ℕ) (h : m < n) (hlim : ∃ i, a i ∉ Amn' m n h), hlim.choose
+    sorry
+
+  sorry
+
 theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     (ha : IsPseudoConv V a) {p : K[X]} (hd0 : 0 < p.natDegree) :
     ∃ l, ∀ ⦃i j k⦄, l ≤ i → i < j → j < k →
@@ -480,16 +507,23 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       simpa using (hfl' n).resolve_left hn.2
     have hγunit (i : ι) : IsUnit (γ V a i) := by simpa using (ha.γ_pos V i).ne.symm
     choose w hw using hunit
+    let w' (n) := if hn : n ∈ hasse0 then w n hn else 1
+    have hw' (n : ℕ) (hn : n ∈ hasse0) : w' n = V ((p.hasseDeriv n).eval (a (fl n))) := by
+      simp [w', hn, hw]
     choose g hg using hγunit
-    suffices ∃ (m : ℕ) (hm : m ∈ hasse0), ∃ l, ∀ i, l ≤ i → ∀ n, (hn : n ∈ hasse0 \ {m}) →
-        (w n (Finset.mem_sdiff.mp hn).1) * g i ^ n < (w m hm) * g i ^ m by
+    have hganti : StrictAnti g := by
+      intro u v h
+      obtain h := (hg u).symm ▸ (hg v).symm ▸ γ_strictAnti V ha h
+      simpa using h
+    suffices ∃ m ∈ hasse0, ∃ l, ∀ i, l ≤ i → ∀ n ∈ hasse0 \ {m},
+        w' n * g i ^ n < w' m * g i ^ m by
       obtain ⟨m, hm, l, h⟩ := this
       refine ⟨m, hm, l, ?_⟩
       intro i hli n hn
-      rw [← hw n (Finset.mem_sdiff.mp hn).1, ← hw m hm, ← hg]
+      rw [← hw' n (Finset.mem_sdiff.mp hn).1, ← hw' m hm, ← hg]
       norm_cast
       exact h i hli n hn
-    sorry
+    apply lemma4 hnonempty w' hganti
 
 
 theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} :
