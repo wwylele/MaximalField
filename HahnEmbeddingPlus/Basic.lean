@@ -312,39 +312,75 @@ theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
     ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) :=
   not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
+theorem lemma4_two {G : Type*} [CommGroup G] [LinearOrder G] [IsOrderedMonoid G]
+    {ι : Type*} [LinearOrder ι] [NoMaxOrder ι] [hι : Nonempty ι] {m n : ℕ} (h : m ≠ n)
+    (c d : G) {a : ι → G} (ha : StrictAnti a) :
+    (∃ l, ∀ i, l ≤ i → c * a i ^ m < d * a i ^ n) ∨
+    (∃ l, ∀ i, l ≤ i → d * a i ^ n < c * a i ^ m) := by
+  wlog hmn : m < n
+  · exact (this h.symm d c ha (lt_of_le_of_ne (not_lt.mp hmn) h.symm)).symm
+  by_cases! hl : ∃ l, d * a l ^ n < c * a l ^ m
+  · obtain ⟨l, hl⟩ := hl
+    refine Or.inr ⟨l, fun i hi ↦ ?_⟩
+    rw [← mul_inv_lt_iff_lt_mul, mul_assoc, ← pow_sub _ hmn.le] at ⊢ hl
+    refine lt_of_le_of_lt ?_ hl
+    rw [mul_le_mul_iff_left]
+    rw [pow_le_pow_iff_left (Nat.sub_ne_zero_of_lt hmn)]
+    exact ha.le_iff_ge.mpr hi
+  · refine Or.inl ⟨hι.some, fun i hi ↦ ?_⟩
+    apply lt_of_le_of_ne (hl i)
+    obtain ⟨j, hj⟩ := exists_gt i
+    specialize hl j
+    contrapose! hl
+    rw [← mul_inv_lt_iff_lt_mul, mul_assoc, ← pow_sub _ hmn.le]
+    rw [← eq_mul_inv_iff_mul_eq, mul_assoc, ← pow_sub _ hmn.le] at hl
+    rw [hl]
+    rw [mul_lt_mul_iff_left]
+    apply pow_lt_pow_left' (Nat.sub_ne_zero_of_lt hmn)
+    apply ha hj
+
 theorem lemma4 {G : Type*} [CommGroup G] [LinearOrder G] [IsOrderedMonoid G]
-    {ι : Type*} [LinearOrder ι] [NoMaxOrder ι]
+    {ι : Type*} [LinearOrder ι] [NoMaxOrder ι] [Nonempty ι]
     {t : Finset ℕ} (ht : t.Nonempty) (c : ℕ → G) {a : ι → G} (ha : StrictAnti a) :
     ∃ m ∈ t, ∃ l, ∀ i, l ≤ i → ∀ n ∈ t \ {m}, c n * a i ^ n < c m * a i ^ m := by
-  let Amn (m n : ℕ) := {x | c m * x ^ m < c n * x ^ n}
-  let Amn' (m n : ℕ) (hmn : m < n) : UpperSet G := {
-    carrier := Amn m n
-    upper' := by
-      intro a b hab
-      suffices c m * a ^ m < c n * a ^ n → c m * b ^ m < c n * b ^ n by simpa [Amn]
-      intro h
-      rw [← lt_mul_inv_iff_mul_lt, mul_assoc, ← pow_sub _ hmn.le] at ⊢ h
-      apply h.trans_le
-      rw [mul_le_mul_iff_left]
-      rw [pow_le_pow_iff_left (Nat.sub_ne_zero_of_lt hmn)]
-      exact hab
-  }
-  classical
-  let Af := (t ×ˢ t).filter fun mn ↦ ∃ (h : mn.1 < mn.2) (i : ι), a i ∉ Amn' mn.1 mn.2 h
+  induction t using Finset.cons_induction with
+  | empty => simp at ht
+  | cons n s hn ih =>
+    obtain rfl | hs := s.eq_empty_or_nonempty
+    · simp
+    obtain ⟨m, hm, l, hl⟩ := ih hs
+    have h : m ≠ n := fun h ↦ hn (h ▸ hm)
+    obtain ⟨l', hl'⟩ | ⟨l', hl'⟩ := lemma4_two h (c m) (c n) ha
+    · refine ⟨n, by simp, max l l', fun i hi k hk ↦ ?_⟩
+      rw [Finset.sdiff_singleton_eq_erase, Finset.erase_cons] at hk
+      specialize hl' _ <| le_trans (by simp) hi
+      obtain hkm | hkm := eq_or_ne k m
+      · rw [hkm]
+        exact hl'
+      · refine lt_trans ?_ hl'
+        exact hl _ (le_trans (by simp) hi) _ (by simpa using ⟨hk, hkm⟩)
+    · refine ⟨m, by simp [hm], max l l', fun i hi k hk ↦ ?_⟩
+      rw [Finset.sdiff_singleton_eq_erase, Finset.erase_cons_of_ne _ h.symm] at hk
+      simp_rw [← Finset.sdiff_singleton_eq_erase, Finset.mem_cons] at hk
+      obtain hkn | hks := hk
+      · rw [hkn]
+        exact hl' _ <| le_trans (by simp) hi
+      · exact hl _ (le_trans (by simp) hi) _ hks
 
-  let A := ⨅ (m : ℕ) (n : ℕ) (h : m < n) (hlim : ∃ i, a i ∉ Amn' m n h), Amn' m n h
-  have : ∃ l, a l ∉ A := by
-    --use ⨅ (m : ℕ) (n : ℕ) (h : m < n) (hlim : ∃ i, a i ∉ Amn' m n h), hlim.choose
-    sorry
-
-  sorry
-
+set_option maxHeartbeats 300000 in
+-- huge proof
 theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     (ha : IsPseudoConv V a) {p : K[X]} (hd0 : 0 < p.natDegree) :
     ∃ l, ∀ ⦃i j k⦄, l ≤ i → i < j → j < k →
     V (p.eval (a j) - p.eval (a k)) < V (p.eval (a i) - p.eval (a j)) := by
   obtain hd1 | hd1 := eq_or_ne p.natDegree 1
-  · sorry
+  · obtain ⟨m, hm, b, rfl⟩ := Polynomial.natDegree_eq_one.mp hd1
+    use hι.some
+    intro i j k hli hij hjk
+    suffices V (m * a j - m * a k) < V (m * a i - m * a j) by simpa
+    simp_rw [← mul_sub, map_mul]
+    rw [mul_lt_mul_iff_right₀ (V.pos_iff.mpr hm)]
+    exact ha hij hjk
   obtain ⟨Γ', _, V', _⟩ := exists_valuation_extension V (AlgebraicClosure K)
   by_cases hlimit : ∃ (x : AlgebraicClosure K) (lb : ι),
     HasLimit V' (fun (i : Set.Ici lb) ↦ algebraMap K (AlgebraicClosure K) (a i)) x
@@ -354,22 +390,104 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
     simp_rw [← Polynomial.aeval_algebraMap_apply_eq_algebraMap_eval]
     simp_rw [← Polynomial.eval_map_algebraMap]
     set p' := (Polynomial.map (algebraMap K (AlgebraicClosure K)) p)
-    have (a : AlgebraicClosure K) : p'.eval a = sorry := by
-      rw [show a = a - x + x by ring]
+    classical
+    let hasse0 := (Finset.Ico 1 (p'.natDegree + 1)).filter fun n ↦ (p'.hasseDeriv n).eval x ≠ 0
+    have hnonempty : hasse0.Nonempty := by
+      use p'.natDegree
+      suffices 1 ≤ p'.natDegree ∧ p' ≠ 0 by simpa [hasse0, Polynomial.hasseDeriv_natDegree_eq_C]
+      constructor
+      · suffices 1 ≤ p.natDegree by simpa [p']
+        grind
+      · suffices p ≠ 0 by simpa [p']
+        contrapose! hd0
+        simp [hd0]
+    have hunit (n : ℕ) (hn : n ∈ hasse0) : IsUnit (V' ((p'.hasseDeriv n).eval x)) := by
+      have : (1 ≤ n ∧ n < p'.natDegree + 1) ∧ (p'.hasseDeriv n).eval x ≠ 0 := by
+        simpa [hasse0] using hn
+      simpa using this.2
+    choose! w hw using hunit
+    have ha' : IsPseudoConv V' fun i ↦ (algebraMap K (AlgebraicClosure K)) (a i) - x := by
+      apply IsPseudoConv.sub_const
+      exact (IsPseudoConv.iff V V').mp ha
+    have hanti : StrictAnti fun i ↦ V' (algebraMap K (AlgebraicClosure K) (a i) - x) := by
+      intro i j hij
+      refine (Or.resolve_right (ha'.lemma1 V') ?_) i j hij
+      unfold HasLimit at hx
+      by_contra!
+      obtain ⟨l, hl, _⟩ := this
+      obtain ⟨i, hi⟩ := exists_gt (max l lb)
+      obtain hlx := hx ⟨max l lb, by simp⟩
+      obtain hix := hx ⟨i, le_trans (by simp) hi.le⟩
+      obtain hlx' := hl (max l lb) (by simp)
+      obtain hix' := hl i (le_trans (by simp) hi.le)
+      simp_rw [V'.map_sub_swap _ x] at hlx'
+      simp_rw [V'.map_sub_swap _ x] at hix'
+      simp only [← hlx'] at hlx
+      simp only [← hix'] at hix
+      refine ((IsPseudoConv.γ_strictAnti V' ?_) (by simpa using hi)).ne.symm (hlx.symm.trans hix)
+      exact ((IsPseudoConv.iff V V').mp ha).Ici V' _
+    have ha0 (i : ι) : (algebraMap K (AlgebraicClosure K) (a i) - x) ≠ 0 := by
+      by_contra! h
+      obtain ⟨j, hj⟩ := exists_gt i
+      obtain hj := hanti hj
+      simp [h] at hj
+    have hvunit (i : ι) : IsUnit (V' (algebraMap K (AlgebraicClosure K) (a i) - x)) := by
+      simpa using ha0 i
+    choose ax hax using hvunit
+    have hanti' : StrictAnti ax := by
+      intro i j hij
+      simpa [← hax] using hanti hij
+    obtain ⟨m, hm, l, hl⟩ := lemma4 hnonempty w hanti'
+    use l
+    intro i j k hli hij hjk
+    have hm' : (1 ≤ m ∧ m < p'.natDegree + 1) ∧ (p'.hasseDeriv m).eval x ≠ 0 := by
+      simpa [hasse0] using hm
+    have h1 (a : AlgebraicClosure K) : p'.eval a =
+        ∑ n ∈ Finset.range (p'.natDegree + 1), (p'.hasseDeriv n).eval x * (a - x) ^ n := by
+      nth_rw 1 [show a = a - x + x by ring]
       rw [← Polynomial.taylor_eval]
       rw [Polynomial.eval_eq_sum_range]
       rw [Polynomial.natDegree_taylor]
       simp_rw [Polynomial.taylor_coeff]
-
-      sorry
-    /-suffices ∃ l, ∀ i j, l ≤ i → i < j →
-        V' (algebraMap _ _ (a j) - x) < V' (algebraMap _ _ (a i) - x) by
-      obtain ⟨l, hl⟩ := this
-      use l
-      intro i j k hl hij hjk
-
-      sorry-/
-    sorry
+    have h2 (i : ι) (hli : l ≤ i) :
+        V' (∑ n ∈ Finset.Ico 1 (p'.natDegree + 1),
+          (p'.hasseDeriv n).eval x * (algebraMap K _ (a i) - x) ^ n) =
+          V' ((p'.hasseDeriv m).eval x * (algebraMap K _ (a i) - x) ^ m) := by
+      apply V'.map_sum_eq_of_lt (by simpa using hm'.1)
+      intro n hn
+      rw [Finset.mem_sdiff] at hn
+      by_cases hnhasse : n ∈ hasse0
+      · simp only [map_mul, hnhasse, ← hw, map_pow, ← hax, hm]
+        norm_cast
+        exact hl i hli n (Finset.mem_sdiff.mpr ⟨hnhasse, hn.2⟩)
+      · simp_rw [hasse0, Finset.mem_filter, not_and_or] at hnhasse
+        obtain h0 := hnhasse.resolve_left (by simpa using hn.1)
+        rw [not_not] at h0
+        suffices 0 < V' ((p'.hasseDeriv m).eval x) * V' ((algebraMap K _ (a i) - x) ^ m) by
+          simpa [h0]
+        refine mul_pos (V'.pos_iff.mpr hm'.2) (V'.pos_iff.mpr (pow_ne_zero _ (ha0 i)))
+    have (i j : ι) (hli : l ≤ i) (hij : i < j) :
+        V' (p'.eval (algebraMap K _ (a i)) - p'.eval (algebraMap K _ (a j))) =
+        V' ((p'.hasseDeriv m).eval x * ((algebraMap K _ (a i)) - x) ^ m) := by
+      simp_rw [h1]
+      rw [Finset.sum_range_eq_add_Ico _ (by simp), Finset.sum_range_eq_add_Ico _ (by simp)]
+      suffices V'
+        (∑ n ∈ Finset.Ico 1 (p'.natDegree + 1),
+          (p'.hasseDeriv n).eval x * (algebraMap K _ (a i) - x) ^ n -
+        ∑ n ∈ Finset.Ico 1 (p'.natDegree + 1),
+          (p'.hasseDeriv n).eval x * (algebraMap K _ (a j) - x) ^ n) =
+        V' ((p'.hasseDeriv m).eval x * (algebraMap K _ (a i) - x) ^ m) by simpa
+      rw [← h2 i hli]
+      rw [V'.map_sub_swap]
+      apply Valuation.map_sub_eq_of_lt_right
+      rw [h2 i hli, h2 j (hli.trans hij.le)]
+      simp_rw [map_mul, map_pow]
+      rw [mul_lt_mul_iff_right₀ (V'.pos_iff.mpr hm'.2)]
+      apply pow_lt_pow_left₀ (hanti hij) (by simp) (Nat.one_le_iff_ne_zero.mp hm'.1.1)
+    rw [this i j hli hij, this j k (hli.trans (hij.le)) hjk]
+    simp_rw [map_mul, map_pow]
+    rw [mul_lt_mul_iff_right₀ (V'.pos_iff.mpr hm'.2)]
+    apply pow_lt_pow_left₀ (hanti hij) (by simp) (Nat.one_le_iff_ne_zero.mp hm'.1.1)
   · have hconst (p : Polynomial K) :
         ∃ l : ι, (∀ i : ι, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ∧
         (p = 0 ∨ V (p.eval (a l)) ≠ 0) := by
@@ -380,7 +498,6 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       have hl (l : ι) : V (p.eval (a l)) ≠ 0 ↔
           V' ((algebraMap K (AlgebraicClosure K)) (Polynomial.eval (a l) p)) ≠ 0 := by simp
       simp_rw [hl]
-
       simp_rw [← Polynomial.aeval_algebraMap_apply_eq_algebraMap_eval]
       simp_rw [Polynomial.aeval_eq_prod_aroots_sub_of_splits (IsAlgClosed.splits_codomain p)]
       suffices ∃ l, (∀ (i : ι), l ≤ i →
@@ -506,24 +623,23 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
         simpa [hasse0] using hn
       simpa using (hfl' n).resolve_left hn.2
     have hγunit (i : ι) : IsUnit (γ V a i) := by simpa using (ha.γ_pos V i).ne.symm
-    choose w hw using hunit
-    let w' (n) := if hn : n ∈ hasse0 then w n hn else 1
-    have hw' (n : ℕ) (hn : n ∈ hasse0) : w' n = V ((p.hasseDeriv n).eval (a (fl n))) := by
-      simp [w', hn, hw]
+    choose! w hw using hunit
+    have hw' (n : ℕ) (hn : n ∈ hasse0) : w n = V ((p.hasseDeriv n).eval (a (fl n))) := by
+      simp [hn, hw]
     choose g hg using hγunit
     have hganti : StrictAnti g := by
       intro u v h
       obtain h := (hg u).symm ▸ (hg v).symm ▸ γ_strictAnti V ha h
       simpa using h
     suffices ∃ m ∈ hasse0, ∃ l, ∀ i, l ≤ i → ∀ n ∈ hasse0 \ {m},
-        w' n * g i ^ n < w' m * g i ^ m by
+        w n * g i ^ n < w m * g i ^ m by
       obtain ⟨m, hm, l, h⟩ := this
       refine ⟨m, hm, l, ?_⟩
       intro i hli n hn
       rw [← hw' n (Finset.mem_sdiff.mp hn).1, ← hw' m hm, ← hg]
       norm_cast
       exact h i hli n hn
-    apply lemma4 hnonempty w' hganti
+    apply lemma4 hnonempty w hganti
 
 
 theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} :
