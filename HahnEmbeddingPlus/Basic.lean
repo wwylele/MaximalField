@@ -53,7 +53,7 @@ theorem exists_valuation_extension.{u} (L : Type u) [Field L] [Algebra K L] :
   Valuation.HasExtension V V' := sorry
 
 
-variable {ι : Type*} [LinearOrder ι] --[IsWellOrder ι (· < ·)]
+variable {ι : Type*} [LinearOrder ι]
 
 def IsPseudoConv (a : ι → K) : Prop := ∀ ⦃i j k⦄, i < j → j < k → V (a j - a k) < V (a i - a j)
 
@@ -99,58 +99,7 @@ theorem IsPseudoConv.lemma1 [NoMaxOrder ι] {a : ι → K} (h : IsPseudoConv V a
   specialize h hk hl
   simp [hj0, hk0, hl0] at h
 
-theorem IsPseudoConv.lemma1_prod [NoMaxOrder ι] [Nonempty ι] {a : ι → K}
-    (h : IsPseudoConv V a) (s : Multiset K) :
-    (∃ i, ∀ j k, i ≤ j → j < k → V (s.map fun c ↦ a k - c).prod < V (s.map fun c ↦ a j - c).prod) ∨
-    (∃ l, ∀ i, l ≤ i → V (s.map fun c ↦ a l - c).prod = V (s.map fun c ↦ a i - c).prod) := by
-  induction s using Multiset.induction with
-  | empty => simp
-  | cons c s ih =>
-    simp_rw [Multiset.map_cons, Multiset.prod_cons, V.map_mul]
-    obtain ⟨i, ih⟩ | ⟨i, ih⟩ := ih
-    · obtain h | ⟨l, h, _⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
-      · left
-        use i
-        intro j k hij hjk
-        apply mul_lt_mul_of_nonneg (h j k hjk) (ih j k hij hjk) zero_le' zero_le'
-      · obtain hl | hl := eq_or_lt_of_le (show 0 ≤ V (a l - c) by simp)
-        · right
-          use l
-          intro i hi
-          rw [← h i hi]
-          simp [← hl]
-        left
-        use max i l
-        intro j k hij hjk
-        rw [← h j (le_of_max_le_right hij)]
-        rw [← h k ((le_of_max_le_right hij).trans hjk.le)]
-        apply mul_lt_mul_of_pos_left (ih j k (le_of_max_le_left hij) hjk) hl
-    · obtain h | ⟨l, h, _⟩ := IsPseudoConv.lemma1 V <| IsPseudoConv.sub_const V h c
-      · obtain hl | hl := eq_or_lt_of_le
-          (show 0 ≤ V (Multiset.map (fun c ↦ a i - c) s).prod by simp)
-        · right
-          use i
-          intro j hj
-          rw [← ih j hj]
-          simp [← hl]
-        · left
-          use i
-          intro j k hij hjk
-          rw [← ih j hij]
-          rw [← ih k (hij.trans hjk.le)]
-          apply mul_lt_mul_of_pos_right (h j k hjk) hl
-      · right
-        use max i l
-        intro j hj
-        congrm ?_ * ?_
-        · trans V (a l - c)
-          · exact (h (max i l) (by simp)).symm
-          · exact h j (le_of_max_le_right hj)
-        · trans V (Multiset.map (fun c ↦ a i - c) s).prod
-          · exact (ih (max i l) (by simp)).symm
-          · exact ih j (le_of_max_le_left hj)
-
-theorem lemma1_prod' [Nonempty ι] {a : ι → K} (s : Multiset K)
+theorem lemma1_prod [Nonempty ι] {a : ι → K} (s : Multiset K)
     (hs : ∀ c ∈ s, ∃ l, (∀ i, l ≤ i → V (a l - c) = V (a i - c)) ∧ V (a l - c) ≠ 0) :
     ∃ l, (∀ i, l ≤ i → V (s.map fun c ↦ a l - c).prod = V (s.map fun c ↦ a i - c).prod)
         ∧ V (s.map fun c ↦ a l - c).prod ≠ 0 := by
@@ -265,52 +214,7 @@ theorem IsPseudoConv.Ici {a : ι → K} (h : IsPseudoConv V a) (l : ι) :
   intro i j k hij hjk
   apply h (by simpa using hij) (by simpa using hjk)
 
-theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
-    (h : IsPseudoConv V a) (p : K[X]) :
-    (∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∨
-    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) := by
-  obtain rfl | hp0 := eq_or_ne p 0
-  · simp
-  obtain ⟨Γ', _, V', _⟩ := exists_valuation_extension V p.SplittingField
-  simp_rw [← Valuation.HasExtension.val_map_lt_iff V V']
-  simp_rw [← Valuation.HasExtension.val_map_eq_iff V V']
-  simp_rw [← Polynomial.aeval_algebraMap_apply_eq_algebraMap_eval]
-  simp_rw [Polynomial.aeval_eq_prod_aroots_sub_of_splits (Polynomial.SplittingField.splits p)]
-  simp_rw [V'.map_mul]
-  have h0 : (algebraMap K p.SplittingField) p.leadingCoeff ≠ 0 := by simpa using hp0
-  simp only [mul_eq_mul_left_iff, map_eq_zero, h0, or_false]
-  simp_rw [mul_lt_mul_iff_of_pos_left (V'.pos_iff.mpr h0)]
-  apply ((IsPseudoConv.iff V V').mp h).lemma1_prod
 
-theorem IsPseudoConv.lemma1_poly_xor [Nonempty ι] (a : ι → K) (p : K[X]) :
-    ¬ ((∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∧
-    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))) := by
-  rw [not_and]
-  intro hp
-  contrapose! hp
-  obtain ⟨i, hi⟩ := hp
-  intro l
-  obtain ⟨i2, hi2⟩ := exists_gt (max i l)
-  refine ⟨max i l, i2, by simp, hi2, ?_⟩
-  exact (hi _ (by simp)).symm.le.trans ((hi _ (max_lt_iff.mp hi2).1.le).le)
-
-theorem IsPseudoConv.lemma1_poly_iff [Nonempty ι] {a : ι → K}
-    (ha : IsPseudoConv V a) (p : K[X]) :
-    (¬ ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ↔
-    ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) := by
-  constructor
-  · intro h
-    obtain h' := IsPseudoConv.lemma1_poly V ha p
-    exact (or_iff_right h).mp h'
-  · intro h
-    by_contra! h'
-    exact (IsPseudoConv.lemma1_poly_xor V a p) ⟨h', h⟩
-
-theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
-    (ha : IsPseudoConv V a) (p : K[X]) :
-    (¬ ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ↔
-    ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) :=
-  not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
 theorem lemma4_two {G : Type*} [CommGroup G] [LinearOrder G] [IsOrderedMonoid G]
     {ι : Type*} [LinearOrder ι] [NoMaxOrder ι] [hι : Nonempty ι] {m n : ℕ} (h : m ≠ n)
@@ -507,7 +411,7 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
           (p.aroots (AlgebraicClosure K))).prod) ∧
         V' (Multiset.map (fun c ↦ (algebraMap K (AlgebraicClosure K)) (a l) - c)
           (p.aroots (AlgebraicClosure K))).prod ≠ 0 by simpa [hp0]
-      apply lemma1_prod'
+      apply lemma1_prod
       intro c hc
       refine Or.resolve_left (IsPseudoConv.lemma1 V'
         (IsPseudoConv.sub_const V' ((IsPseudoConv.iff V V').mp ha) c)) ?_
@@ -641,6 +545,50 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
       exact h i hli n hn
     apply lemma4 hnonempty w hganti
 
+theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
+    (h : IsPseudoConv V a) (p : K[X]) :
+    (∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∨
+    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) := by
+  obtain hp | hp := Nat.eq_zero_or_pos p.natDegree
+  · obtain ⟨c, rfl⟩ := Polynomial.natDegree_eq_zero.mp hp
+    simp
+  obtain ⟨l, hl⟩ := IsPseudoConv.poly_eventually V h hp
+  have : IsPseudoConv V fun (i : Set.Ici l) ↦ p.eval (a i) := by
+    intro i j k hij hjk
+    exact hl i.prop hij hjk
+  obtain h | ⟨m, h⟩ := this.lemma1
+  · exact Or.inl ⟨l, fun j k hlj hjk ↦ h ⟨j, hlj⟩ ⟨k, hlj.trans hjk.le⟩ hjk⟩
+  · refine Or.inr ⟨m, fun i hi ↦ (h.1 ⟨i, m.prop.trans hi⟩ hi)⟩
+
+theorem IsPseudoConv.lemma1_poly_xor [Nonempty ι] (a : ι → K) (p : K[X]) :
+    ¬ ((∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∧
+    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))) := by
+  rw [not_and]
+  intro hp
+  contrapose! hp
+  obtain ⟨i, hi⟩ := hp
+  intro l
+  obtain ⟨i2, hi2⟩ := exists_gt (max i l)
+  refine ⟨max i l, i2, by simp, hi2, ?_⟩
+  exact (hi _ (by simp)).symm.le.trans ((hi _ (max_lt_iff.mp hi2).1.le).le)
+
+theorem IsPseudoConv.lemma1_poly_iff [Nonempty ι] {a : ι → K}
+    (ha : IsPseudoConv V a) (p : K[X]) :
+    (¬ ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ↔
+    ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)) := by
+  constructor
+  · intro h
+    obtain h' := IsPseudoConv.lemma1_poly V ha p
+    exact (or_iff_right h).mp h'
+  · intro h
+    by_contra! h'
+    exact (IsPseudoConv.lemma1_poly_xor V a p) ⟨h', h⟩
+
+theorem IsPseudoConv.lemma1_poly_iff' [Nonempty ι] {a : ι → K}
+    (ha : IsPseudoConv V a) (p : K[X]) :
+    (¬ ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ↔
+    ∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j)) :=
+  not_iff_comm.mp (IsPseudoConv.lemma1_poly_iff V ha p)
 
 theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} :
     HasLimit V a x ↔ HasLimit V' (algebraMap K L ∘ a) (algebraMap K L x) := by
@@ -906,6 +854,15 @@ theorem vPoly_mul [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (p q : K[X
   rw [← hq (max pi qi) (by simp)]
   rw [← hq i (le_of_max_le_right hi)]
 
+@[simps]
+noncomputable
+def vPolyMonoidWithZeroHom [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) :
+    K[X] →*₀ Γ where
+  toFun := vPoly V a
+  map_zero' := by simp [vPoly]
+  map_one' := by simp [vPoly]
+  map_mul' := vPoly_mul V h
+
 omit [NoMaxOrder ι] in
 theorem vPoly_add [Nonempty ι] (a : ι → K) (p q : K[X])
     (hp : ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
@@ -952,36 +909,35 @@ theorem vPoly_well [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
   rw [vPoly_ne_zero V h hr]
   apply htran
 
+theorem RatFunc.liftMonoidWithZeroHom_apply_mk {G₀ : Type*} {R : Type*}
+    [CommGroupWithZero G₀] [CommRing R] [IsDomain R]
+    (φ : Polynomial R →*₀ G₀)
+    (hφ : nonZeroDivisors (Polynomial R) ≤ Submonoid.comap φ (nonZeroDivisors G₀))
+    (n : Polynomial R) (d : Polynomial R) :
+    liftMonoidWithZeroHom φ hφ (RatFunc.mk n d) = φ n / φ d := by
+  simp
+
 noncomputable
 def vTransc [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
     Valuation (RatFunc K) Γ where
-  toFun p := RatFunc.liftOn' p (fun p q ↦ vPoly V a p / vPoly V a q)
-    (fun {p q r} hq hr ↦ vPoly_well V h htran hr)
-  map_zero' := by
-    rw [show (0 : RatFunc K) = RatFunc.mk 0 1 by simp]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    simp [vPoly]
-  map_one' := by
-    rw [show (1 : RatFunc K) = RatFunc.mk 1 1 by simp]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    simp [vPoly]
-  map_mul' p q := by
-    induction p using RatFunc.induction_on' with | _pq p1 p2 hp
-    induction q using RatFunc.induction_on' with | _pq q1 q2 hq
-    rw [RatFunc.mk_mul_mk]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    simp_rw [vPoly_mul V h]
-    rw [div_mul_div_comm]
+  __ := RatFunc.liftMonoidWithZeroHom (vPolyMonoidWithZeroHom V h) (by
+    intro p
+    suffices p ≠ 0 → vPoly V a p ≠ 0 by simpa
+    exact fun hp ↦ (vPoly_ne_zero V h hp).mpr (htran p)
+    )
   map_add_le_max' p q := by
     induction p using RatFunc.induction_on' with | _pq p1 p2 hp
     induction q using RatFunc.induction_on' with | _pq q1 q2 hq
     rw [RatFunc.mk_add_mk _ _ _ _ hp hq]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
-    rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
+    change ((RatFunc.liftMonoidWithZeroHom (vPolyMonoidWithZeroHom V h) _))
+      (RatFunc.mk (p1 * q2 + p2 * q1) (p2 * q2)) ≤
+      max (((RatFunc.liftMonoidWithZeroHom (vPolyMonoidWithZeroHom V h) _)) (RatFunc.mk p1 p2))
+        (((RatFunc.liftMonoidWithZeroHom (vPolyMonoidWithZeroHom V h) _)) (RatFunc.mk q1 q2))
+    rw [RatFunc.liftMonoidWithZeroHom_apply_mk]
+    rw [RatFunc.liftMonoidWithZeroHom_apply_mk]
+    rw [RatFunc.liftMonoidWithZeroHom_apply_mk]
+    simp only [vPolyMonoidWithZeroHom_apply]
     rw [vPoly_mul V h]
     have hp0 : vPoly V a p2 ≠ 0 := by
       rw [vPoly_ne_zero V h hp]
@@ -997,33 +953,27 @@ def vTransc [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     rw [vPoly_mul V h]
     field_simp
 
+@[simp]
 theorem vTransc_mk [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
     (p q : K[X]) :
     vTransc V h htran (RatFunc.mk p q) = vPoly V a p / vPoly V a q := by
   rw [vTransc]
-  simp only [Valuation.coe_mk, MonoidWithZeroHom.coe_mk, ZeroHom.coe_mk]
-  rw [RatFunc.liftOn'_mk _ _ _ (vPoly_div_zero _ _) _]
+  simp
 
 theorem RatFunc.C_eq_mk {K : Type*} [CommRing K] [IsDomain K] (a : K) :
     RatFunc.C a = RatFunc.mk (Polynomial.C a) (1 : K[X]) := rfl
 
-theorem RatFunc.liftOn'_C {K : Type*} [CommRing K] [IsDomain K] {P : Sort*}
-    (a : K) (f : K[X] → K[X] → P) (f0 : ∀ p, f p 0 = f 0 1)
-    (H : ∀ {p q a} (_hq : q ≠ 0) (_ha : a ≠ 0), f (a * p) (a * q) = f p q) :
-    (RatFunc.C a).liftOn' f H = f (Polynomial.C a) 1 := by
-  rw [RatFunc.C_eq_mk]
-  rw [RatFunc.liftOn'_mk _ _ f f0 H]
-
+@[simp]
 theorem vTransc_C [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
     (p : K) :
     vTransc V h htran (RatFunc.C p) = V p := by
-  rw [vTransc]
-  simp only [Valuation.coe_mk, MonoidWithZeroHom.coe_mk, ZeroHom.coe_mk]
-  rw [RatFunc.liftOn'_C _ _ (vPoly_div_zero _ _) _]
+  rw [RatFunc.C_eq_mk]
+  rw [vTransc_mk]
   simp [vPoly]
 
+@[simp]
 theorem vTransc_polynomial [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
     (p : K[X]) :
@@ -1037,13 +987,7 @@ instance vTransc_hasExtension [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a
     Valuation.HasExtension V (vTransc V h htran) where
   val_isEquiv_comap := by
     intro x y
-    simp only [RatFunc.algebraMap_eq_C, vTransc, Valuation.comap_apply, Valuation.coe_mk,
-      MonoidWithZeroHom.coe_mk, ZeroHom.coe_mk]
-    rw [RatFunc.liftOn'_C _ _ (vPoly_div_zero _ _)
-      (fun {p q r} hq hr ↦ vPoly_well V h htran hr)]
-    rw [RatFunc.liftOn'_C _ _ (vPoly_div_zero _ _)
-      (fun {p q r} hq hr ↦ vPoly_well V h htran hr)]
-    simp [vPoly]
+    simp
 
 theorem vTransc_valueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
@@ -1173,7 +1117,7 @@ theorem vTransc_exists_close' [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a
     simpa using hp
 
   have hp : vTransc V h htran p ≠ 0 := (vTransc V h htran).zero_iff.ne.mpr hp
-  have hmem : vTransc V h htran p ∈ Set.range (vTransc V h htran) := by simp
+  have hmem : vTransc V h htran p ∈ Set.range (vTransc V h htran) := by simp [vTransc]
   rw [vTransc_valueImmediate] at hmem
   have : ∃ s, vTransc V h htran (RatFunc.C s) = vTransc V h htran p := by simpa using hmem
   obtain ⟨s, hs⟩ := this
@@ -1216,9 +1160,7 @@ theorem vTransc_residueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
     = IsLocalRing.maximalIdeal (vTransc V h htran).valuationSubring by rfl] -- ehh
   obtain ⟨r, hr⟩ := r
   have hr : vTransc V h htran r ≤ 1 := by simpa using hr
-  suffices ∃ s,
-    vTransc V h htran
-      ((algebraMap V.integer (vTransc V h htran).integer) s - r) < 1 by
+  suffices ∃ s, vTransc V h htran (algebraMap V.integer (vTransc V h htran).integer s - r) < 1 by
     obtain ⟨s, hs⟩ := this
     use s
     rw [Valuation.mem_maximalIdeal_iff]
