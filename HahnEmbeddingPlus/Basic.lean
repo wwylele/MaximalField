@@ -1077,23 +1077,15 @@ theorem vTransc_hasLimit [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
   refine ⟨j, hj.le, ?_⟩
   exact vPoly_not_const V h i j hj
 
-theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
-    (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
-    {p : K[X]} (hp : vTransc V h htran p = 1) :
-    ∃ x : K, V x = 1 ∧ vTransc V h htran (RatFunc.C x - p) < 1 := by
-  rw [vTransc_polynomial] at hp
-  have hv (x : K) : vTransc V h htran (RatFunc.C x - p) =
-      vPoly V a (Polynomial.C x - p) := by
-    suffices (RatFunc.C x - p : RatFunc K) = (Polynomial.C x - p : Polynomial K) by
-      rw [this, vTransc_polynomial]
-    change RatFunc.C x - algebraMap _ _ p = algebraMap _ _ (Polynomial.C x - p)
-    simp
-  simp_rw [hv]
+theorem vPoly_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    {p : K[X]} (hp : vPoly V a p = 1)
+    (hptran : ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
+    ∃ x, V x = 1 ∧ vPoly V a (Polynomial.C x - p) < 1 := by
   obtain hd0 | hd0 := Nat.eq_zero_or_pos p.natDegree
   · obtain ⟨x, hx⟩ := Polynomial.natDegree_eq_zero.mp hd0
     use x
     simpa [← hx, vPoly] using hp
-  obtain ⟨m, hm⟩ := htran p
+  obtain ⟨m, hm⟩ := hptran
   obtain ⟨i, hi⟩ := IsPseudoConv.poly_eventually V h hd0
   obtain ⟨j, hj⟩ := exists_gt i
   obtain ⟨jm, hjm⟩ := exists_gt (max j m)
@@ -1125,6 +1117,20 @@ theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     rw [← hm n (max_le_iff.mp hn).2]
   · rw [← hm jm (le_trans (by simp) hjm.le)]
     rw [← hm n ((max_le_iff.mp hjm.le).2.trans hn)]
+
+theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    {p : K[X]} (hp : vTransc V h htran p = 1) :
+    ∃ x : K, V x = 1 ∧ vTransc V h htran (RatFunc.C x - p) < 1 := by
+  rw [vTransc_polynomial] at hp
+  have hv (x : K) : vTransc V h htran (RatFunc.C x - p) =
+      vPoly V a (Polynomial.C x - p) := by
+    suffices (RatFunc.C x - p : RatFunc K) = (Polynomial.C x - p : Polynomial K) by
+      rw [this, vTransc_polynomial]
+    change RatFunc.C x - algebraMap _ _ p = algebraMap _ _ (Polynomial.C x - p)
+    simp
+  simp_rw [hv]
+  apply vPoly_exists_close V h hp (htran p)
 
 theorem vTransc_exists_close' [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
@@ -1346,6 +1352,11 @@ theorem Polynomial.add_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
   simp_rw [Polynomial.mod_def]
   rw [Polynomial.add_modByMonic]
 
+theorem Polynomial.sub_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
+    (p₁ - p₂) % q = p₁ % q - p₂ % q := by
+  simp_rw [Polynomial.mod_def]
+  rw [Polynomial.sub_modByMonic]
+
 theorem Polynomial.mul_modByMonic {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
     (p₁ * p₂) %ₘ q = ((p₁ %ₘ q) * (p₂ %ₘ q)) %ₘ q := by
   by_cases! h : ¬ q.Monic
@@ -1554,3 +1565,44 @@ theorem vAlg_hasLimit [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
   constructor
   · exact hj.le
   exact vPoly_not_const V h l j hj
+
+theorem vAlg_residueImmediate [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    [Fact (Irreducible p0)] :
+    Function.Surjective (IsLocalRing.ResidueField.map
+      (algebraMap V.integer (vAlg V h p0 h1 h2).integer)) := by
+  intro r
+  induction r with | residue r
+  suffices ∃ s, IsLocalRing.residue (vAlg V h p0 h1 h2).integer
+      (algebraMap V.integer (vAlg V h p0 h1 h2).integer s - r) = 0 by
+    obtain ⟨s, hs⟩ := this
+    rw [map_sub, sub_eq_zero] at hs
+    use IsLocalRing.residue V.integer s
+    rw [← hs, IsLocalRing.ResidueField.map_residue]
+  simp_rw [IsLocalRing.residue_eq_zero_iff]
+  simp_rw [show IsLocalRing.maximalIdeal (vAlg V h p0 h1 h2).integer
+    = IsLocalRing.maximalIdeal (vAlg V h p0 h1 h2).valuationSubring by rfl] -- ehh
+  obtain ⟨r, hr⟩ := r
+  have hr : vAlg V h p0 h1 h2 r ≤ 1 := by simpa using hr
+  suffices ∃ s, vAlg V h p0 h1 h2 (algebraMap V.integer (vAlg V h p0 h1 h2).integer s - r) < 1 by
+    obtain ⟨s, hs⟩ := this
+    use s
+    rw [Valuation.mem_maximalIdeal_iff]
+    exact hs -- not sure why simp_rw didn't work
+  suffices ∃ s ∈ V.integer, vAlg V h p0 h1 h2 (AdjoinRoot.of p0 s - r) < 1 by simpa
+  obtain hr | hr := lt_or_eq_of_le hr
+  · exact ⟨0, by simp, by simpa using hr⟩
+  induction r using AdjoinRoot.induction_on with | ih r
+  rw [vAlg_polynomial] at hr
+  obtain rfl | hp := eq_or_ne r 0
+  · exact ⟨0, by simp⟩
+  obtain ⟨s, hs1, hs⟩ := vPoly_exists_close V h hr (h1 _ (vAlg_mod_p_degree V a p0 h2 _))
+  refine ⟨s, (V.mem_integer_iff _).mpr hs1.le, ?_⟩
+  suffices vAlg V h p0 h1 h2 (AdjoinRoot.mk p0 (Polynomial.C s - r)) < 1 by simpa
+  simp_rw [vAlg_polynomial, Polynomial.sub_mod]
+  convert hs
+  refine (Polynomial.mod_eq_self_iff
+      (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2))).mpr ?_
+  exact lt_of_le_of_lt Polynomial.degree_C_le (vAlg_p_degree_pos V a p0 h2)
