@@ -63,11 +63,24 @@ theorem IsPseudoConv.sub_const {a : ι → K} (h : IsPseudoConv V a) (c : K) :
   intro i j k hij hjk
   convert h hij hjk using 1 <;> simp
 
+theorem IsPseudoConv.add_const {a : ι → K} (h : IsPseudoConv V a) (c : K) :
+    IsPseudoConv V (fun i ↦ a i + c) := by
+  unfold IsPseudoConv at ⊢ h
+  intro i j k hij hjk
+  convert h hij hjk using 1 <;> simp
+
 theorem IsPseudoConv.const_sub {a : ι → K} (h : IsPseudoConv V a) (c : K) :
     IsPseudoConv V (fun i ↦ c - a i) := by
   unfold IsPseudoConv at ⊢ h
   intro i j k hij hjk
   convert h hij hjk using 1 <;> simp [Valuation.map_sub_swap]
+
+theorem IsPseudoConv.const_mul {a : ι → K} (h : IsPseudoConv V a) {c : K} (hc : c ≠ 0) :
+    IsPseudoConv V (fun i ↦ c * a i) := by
+  unfold IsPseudoConv at ⊢ h
+  intro i j k hij hjk
+  simp_rw [← mul_sub, map_mul]
+  exact mul_lt_mul_of_pos_left (h hij hjk) (V.pos_iff.mpr hc)
 
 theorem IsPseudoConv.lemma1 [NoMaxOrder ι] {a : ι → K} (h : IsPseudoConv V a) :
     (∀ i j, i < j → V (a j) < V (a i)) ∨ (∃ l, (∀ i, l ≤ i → V (a l) = V (a i)) ∧ V (a l) ≠ 0) := by
@@ -548,7 +561,7 @@ theorem IsPseudoConv.poly_eventually [hι : Nonempty ι] {a : ι → K}
 theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
     (h : IsPseudoConv V a) (p : K[X]) :
     (∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∨
-    (∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) := by
+    (∃ l, (∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))) := by
   obtain hp | hp := Nat.eq_zero_or_pos p.natDegree
   · obtain ⟨c, rfl⟩ := Polynomial.natDegree_eq_zero.mp hp
     simp
@@ -558,7 +571,7 @@ theorem IsPseudoConv.lemma1_poly [Nonempty ι] {a : ι → K}
     exact hl i.prop hij hjk
   obtain h | ⟨m, h⟩ := this.lemma1
   · exact Or.inl ⟨l, fun j k hlj hjk ↦ h ⟨j, hlj⟩ ⟨k, hlj.trans hjk.le⟩ hjk⟩
-  · refine Or.inr ⟨m, fun i hi ↦ (h.1 ⟨i, m.prop.trans hi⟩ hi)⟩
+  · exact Or.inr ⟨m, fun i hi ↦ (h.1 ⟨i, m.prop.trans hi⟩ hi)⟩
 
 theorem IsPseudoConv.lemma1_poly_xor [Nonempty ι] (a : ι → K) (p : K[X]) :
     ¬ ((∃ i, ∀ j k, i ≤ j → j < k → V (p.eval (a k)) < V (p.eval (a j))) ∧
@@ -1216,13 +1229,236 @@ theorem vTransc_residueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
       exact hsp2
     · exact hsq0'
 
+def AdjoinRoot.lift' {R S : Type*} [CommRing R] (p : Polynomial R)
+    (f : Polynomial R → S) (h : ∀ a b, p ∣ a - b → f a = f b) (x : AdjoinRoot p) :=
+  Quotient.lift f (fun a b hab ↦ by
+    change (Ideal.span {p}).quotientRel a b at hab
+    rw [Submodule.quotientRel_def] at hab
+    rw [Ideal.mem_span_singleton] at hab
+    apply h a b hab) x
+
+@[simp]
+theorem AdjoinRoot.lift'_mk {R S : Type*} [CommRing R] (p : Polynomial R)
+    (f : Polynomial R → S) (h : ∀ a b, p ∣ a - b → f a = f b) (x : Polynomial R) :
+    lift' p f h (mk p x) = f x := rfl
+
+/-def AdjoinRoot.liftMonoidWithZeroHom {R S : Type*} [CommRing R] [MonoidWithZero S]
+    (p : Polynomial R) (f : Polynomial R →*₀ S) (h : ∀ a b, p ∣ a - b → f a = f b) :
+    AdjoinRoot p →*₀ S where
+  toFun := lift' p f h
+  map_zero' := by
+    rw [show (0 : AdjoinRoot p) = mk p 0 by simp]
+    rw [AdjoinRoot.lift'_mk]
+    simp
+  map_one' := by
+    rw [show (1 : AdjoinRoot p) = mk p 1 by simp]
+    rw [AdjoinRoot.lift'_mk]
+    simp
+  map_mul' x y := by
+    induction x using AdjoinRoot.induction_on with | ih x
+    induction y using AdjoinRoot.induction_on with | ih y
+    rw [← map_mul]
+    simp_rw [AdjoinRoot.lift'_mk]
+    simp
+
+@[simp]
+theorem AdjoinRoot.liftMonoidWithZeroHom_mk {R S : Type*} [CommRing R] [MonoidWithZero S]
+    {p : Polynomial R} (f : Polynomial R →*₀ S) (h : ∀ a b, p ∣ a - b → f a = f b)
+    (x : Polynomial R) :
+    liftMonoidWithZeroHom p f h (mk p x) = f x := rfl-/
+
+omit [NoMaxOrder ι] in
+theorem vAlg_p_degree_pos [hι : Nonempty ι] (a : ι → K) (p0 : K[X])
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i))) :
+    0 < p0.degree := by
+  contrapose! h2 with h0
+  rw [Polynomial.degree_le_zero_iff.mp h0]
+  use hι.some
+  simp
+
+
+theorem vAlg_one_lt_degree [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (hlimit : ∀ x : K, ¬ HasLimit V a x) (p0 : K[X])
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i))) :
+    1 < p0.degree := by
+  by_contra! hdegree
+  obtain hc1 | hc1 := eq_or_ne (p0.coeff 1) 0
+  · contrapose h2
+    rw [Polynomial.eq_X_add_C_of_degree_le_one hdegree]
+    simp [hc1]
+  rw [IsPseudoConv.lemma1_poly_iff' V h] at h2
+  rw [Polynomial.eq_X_add_C_of_degree_le_one hdegree] at h2
+  contrapose! hlimit
+  have hpseudoconv : IsPseudoConv V (fun i ↦ p0.coeff 1 * a i + p0.coeff 0) := by
+    apply IsPseudoConv.add_const
+    exact IsPseudoConv.const_mul V h hc1
+  have h2' : ∃ i, ∀ j k, i ≤ j → j < k →
+      V (p0.coeff 1 * a k + p0.coeff 0) < V (p0.coeff 1 * a j + p0.coeff 0) := by simpa using h2
+  have h2'' : ∀ i j, i < j →
+      V (p0.coeff 1 * a j + p0.coeff 0) < V (p0.coeff 1 * a i + p0.coeff 0) := by
+    apply (hpseudoconv.lemma1 V).resolve_right
+    by_contra!
+    obtain ⟨m, hm, _⟩ := this
+    obtain ⟨l, hl⟩ := h2'
+    obtain ⟨j, hj⟩ := exists_gt (max l m)
+    obtain hmi := hm (max l m) (by simp)
+    obtain hmj := hm j (le_trans (by simp) hj.le)
+    specialize hl (max l m) j (by simp) hj
+    simp [← hmi, ← hmj] at hl
+  use -(p0.coeff 0 / p0.coeff 1)
+  intro i
+  rw [← neg_add', V.map_neg, add_comm]
+  obtain ⟨j, hj⟩ := exists_gt i
+  rw [h.γ_eq V hj]
+  refine (mul_eq_mul_left_iff.mp ?_).resolve_right (show V (p0.coeff 1) ≠ 0 by simpa using hc1)
+  simp_rw [← V.map_mul, mul_add, mul_sub]
+  rw [mul_div_cancel₀ _ hc1]
+  rw [show p0.coeff 1 * a i - p0.coeff 1 * a j =
+    (p0.coeff 1 * a i + p0.coeff 0) - (p0.coeff 1 * a j + p0.coeff 0) by ring]
+  rw [V.map_sub_swap]
+  apply (V.map_sub_eq_of_lt_right ?_).symm
+  apply h2'' _ _ hj
+
+theorem Polynomial.mod_eq_of_dvd_sub {R : Type*} [Field R] {p₁ p₂ q : R[X]}
+    (h : q ∣ p₁ - p₂) : p₁ % q = p₂ % q := by
+  obtain rfl | hq := eq_or_ne q 0
+  · simpa [sub_eq_zero] using h
+  simp_rw [Polynomial.mod_def]
+  refine Polynomial.modByMonic_eq_of_dvd_sub ?_ ?_
+  · simp [Polynomial.Monic.def, hq]
+  rw [mul_comm]
+  exact (Polynomial.C_mul_dvd (by simpa using hq)).mpr h
+
+theorem Polynomial.degree_mod_lt {R : Type*} [Field R] (p : R[X]) {q : R[X]} (hq : q ≠ 0) :
+    (p % q).degree < q.degree := by
+  rw [Polynomial.mod_def]
+  refine (Polynomial.degree_modByMonic_lt p ?_).trans_eq (by simp)
+  · simp [Polynomial.Monic.def, hq]
+
+theorem Polynomial.add_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
+    (p₁ + p₂) % q = p₁ % q + p₂ % q := by
+  simp_rw [Polynomial.mod_def]
+  rw [Polynomial.add_modByMonic]
+
+theorem Polynomial.mul_modByMonic {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
+    (p₁ * p₂) %ₘ q = ((p₁ %ₘ q) * (p₂ %ₘ q)) %ₘ q := by
+  by_cases! h : ¬ q.Monic
+  · simp [Polynomial.modByMonic_eq_of_not_monic, h]
+  apply Polynomial.modByMonic_eq_of_dvd_sub h
+  rw [show p₁ * p₂ - p₁ %ₘ q * (p₂ %ₘ q) =
+    (p₁ %ₘ q) * (p₂ - p₂ %ₘ q) + p₂ * (p₁ - p₁ %ₘ q)  by ring]
+  apply dvd_add
+  all_goals
+  · apply dvd_mul_of_dvd_right
+    rw [Polynomial.modByMonic_eq_sub_mul_div _ h]
+    simp
+
+theorem Polynomial.mul_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
+    (p₁ * p₂) % q = ((p₁ % q) * (p₂ % q)) % q := by
+  simp_rw [Polynomial.mod_def]
+  rw [Polynomial.mul_modByMonic]
+
+omit [NoMaxOrder ι] in
+theorem vAlg_mod_p_degree [hι : Nonempty ι] (a : ι → K) (p0 : K[X])
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    (p : K[X]) :
+    (p % p0).degree < p0.degree :=
+  (Polynomial.degree_mod_lt _ (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2)))
+
+
+theorem vPoly_mul_mod [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    {f g : K[X]} (hf : f.degree < p0.degree) (hg : g.degree < p0.degree) :
+    vPoly V a (f * g % p0) = vPoly V a f * vPoly V a g := by
+  rw [← vPoly_mul V h]
+  have hdvd : p0 ∣ f * g - f * g % p0 := by
+    rw [EuclideanDomain.mod_eq_sub_mul_div]
+    simp
+  obtain ⟨k, hk⟩ := hdvd
+  obtain rfl | hk0 := eq_or_ne k 0
+  · rw [mul_zero, sub_eq_zero] at hk
+    simp [← hk]
+  obtain ⟨lf, hlf⟩ := h1 f hf
+  obtain ⟨lg, hlg⟩ := h1 g hg
+  have hfmg : ∃ l, ∀ i, l ≤ i → V ((f * g).eval (a l)) = V ((f * g).eval (a i)) := by
+    use max lf lg
+    intro i hi
+    simp_rw [Polynomial.eval_mul, V.map_mul]
+    rw [← hlf i (by order), ← hlg i (by order)]
+    rw [← hlf (max lf lg) (by order), ← hlg (max lf lg) (by order)]
+  obtain ⟨lfmg, hlfmg⟩ := hfmg
+  obtain ⟨lfg, hlfg⟩ := h1 (f * g % p0) (vAlg_mod_p_degree V a p0 h2 _)
+  obtain ⟨lp0, hlp0⟩ := (h.lemma1_poly_iff' V p0).mp h2
+  have hpk : ∃ l, ∀ i j, l ≤ i → i < j → V ((p0 * k).eval (a j)) < V ((p0 * k).eval (a i)) := by
+    simp_rw [Polynomial.eval_mul, map_mul]
+    obtain ⟨lk, hlk⟩ | ⟨lk, hlk⟩ := h.lemma1_poly V k <;> use max lk lp0 <;> intro i j hi hij
+    · exact mul_lt_mul_of_nonneg (hlp0 i j (le_trans (by simp) hi) hij)
+        (hlk i j (le_trans (by simp) hi) hij) (by simp) (by simp)
+    · rw [← hlk i (le_trans (by simp) hi)]
+      rw [← hlk j ((le_trans (by simp) hi).trans hij.le)]
+      apply mul_lt_mul_of_pos_right (hlp0 i j (le_trans (by simp) hi) hij)
+      obtain ⟨l, hlkl, hl⟩ := h.exists_poly_ne_zero V hk0 lk
+      rw [hlk l hlkl, V.pos_iff]
+      exact hl
+  obtain ⟨lpk, hlpk⟩ := hpk
+  rw [vPoly_eq V a (f * g % p0) (max lfmg (max lfg lpk)) fun i hi ↦ (by
+    rw [← hlfg (max lfmg (max lfg lpk)) (by order)]
+    rw [← hlfg i (by order)])]
+  rw [vPoly_eq V a (f * g) (max lfmg (max lfg lpk)) fun i hi ↦ (by
+    rw [← hlfmg (max lfmg (max lfg lpk)) (by order)]
+    rw [← hlfmg i (by order)])]
+  by_contra! hne
+  have hne' : V (-(f * g % p0).eval (a (max lfmg (max lfg lpk)))) ≠
+      V ((f * g).eval (a (max lfmg (max lfg lpk)))) := by
+    rw [V.map_neg]
+    exact hne
+  obtain ⟨n, hn⟩ := exists_gt (max lfmg (max lfg lpk))
+  have hne'' : V (-(f * g % p0).eval (a n)) ≠ V ((f * g).eval (a n)) := by
+    convert hne' using 1
+    · simp_rw [V.map_neg]
+      rw [← hlfg (max lfmg (max lfg lpk)) (by order), ← hlfg n (by order)]
+    · rw [← hlfmg (max lfmg (max lfg lpk)) (by order), ← hlfmg n (by order)]
+  obtain h1 := V.map_add_of_distinct_val hne'
+  obtain h2 := V.map_add_of_distinct_val hne''
+  rw [neg_add_eq_sub, V.map_neg, ← Polynomial.eval_sub, hk] at h1 h2
+  rw [← hlfg (max lfmg (max lfg lpk)) (by order), ← hlfmg (max lfmg (max lfg lpk)) (by order)] at h1
+  rw [← hlfg n (by order), ← hlfmg n (by order)] at h2
+  exact (hlpk (max lfmg (max lfg lpk)) n (by order) hn).ne.symm (h1.trans h2.symm)
+
 noncomputable
-def vAlg [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a) (p0 : K[X]) [Fact (Irreducible p0)]
-    (hp0 : ∀ p : K[X], p.degree < p0.degree →
-      ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
+def vAlg [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i))) :
     Valuation (AdjoinRoot p0) Γ where
-  toFun := sorry
-  map_zero' := sorry
-  map_one' := sorry
-  map_mul' := sorry
-  map_add_le_max' := sorry
+  toFun := AdjoinRoot.lift' p0 (fun p ↦ vPoly V a (p % p0))
+    (fun p q h ↦ by simp [Polynomial.mod_eq_of_dvd_sub h])
+  map_zero' := by
+    rw [show (0 : AdjoinRoot p0) = AdjoinRoot.mk p0 0 by simp]
+    rw [AdjoinRoot.lift'_mk]
+    simp [vPoly]
+  map_one' := by
+    rw [show (1 : AdjoinRoot p0) = AdjoinRoot.mk p0 1 by simp]
+    rw [AdjoinRoot.lift'_mk]
+    rw [(Polynomial.mod_eq_self_iff
+      (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2))).mpr
+      (by simpa using (vAlg_p_degree_pos V a p0 h2))]
+    simp [vPoly]
+  map_mul' p q := by
+    induction p using AdjoinRoot.induction_on with | ih p
+    induction q using AdjoinRoot.induction_on with | ih q
+    rw [← map_mul]
+    simp_rw [AdjoinRoot.lift'_mk]
+    rw [Polynomial.mul_mod]
+    apply vPoly_mul_mod V h p0 h1 h2 <;> exact (vAlg_mod_p_degree V a p0 h2 _)
+  map_add_le_max' p q := by
+    induction p using AdjoinRoot.induction_on with | ih p
+    induction q using AdjoinRoot.induction_on with | ih q
+    rw [← map_add]
+    simp_rw [AdjoinRoot.lift'_mk]
+    rw [Polynomial.add_mod]
+    have hp : (p % p0).degree < p0.degree := (vAlg_mod_p_degree V a p0 h2 _)
+    have hq : (q % p0).degree < p0.degree := (vAlg_mod_p_degree V a p0 h2 _)
+    exact vPoly_add V a _ _ (h1 _ hp) (h1 _ hq)
+      (h1 _ ((Polynomial.degree_add_le _ _).trans_lt (max_lt hp hq)))
