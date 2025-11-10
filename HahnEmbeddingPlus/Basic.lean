@@ -1021,6 +1021,28 @@ theorem vTransc_valueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv V 
   rw [vPoly_eq V a q qi hqi]
   simp
 
+theorem vPoly_not_const [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (i j : ι) (hj : i < j) :
+    vPoly V a (Polynomial.X - Polynomial.C (a i)) ≠
+    vPoly V a (Polynomial.X - Polynomial.C (a j)) := by
+  obtain ⟨k, hk⟩ := exists_gt j
+  rw [vPoly_eq V a _ j (by
+    suffices ∀ l, j ≤ l → V (a j - a i) = V (a l - a i) by simpa
+    intro l hl
+    rw [V.map_sub_swap (a j), V.map_sub_swap (a l)]
+    apply h.lemma2' V hj (hj.trans_le hl)
+  )]
+  rw [vPoly_eq V a _ k (by
+    suffices ∀ l, k ≤ l → V (a k - a j) = V (a l - a j) by simpa
+    intro l hl
+    rw [V.map_sub_swap (a k), V.map_sub_swap (a l)]
+    apply h.lemma2' V hk (hk.trans_le hl)
+  )]
+  suffices V (a j - a i) ≠ V (a k - a j) by simpa
+  apply ne_of_gt
+  rw [V.map_sub_swap (a k), V.map_sub_swap _ (a i)]
+  apply h hj hk
+
 theorem vTransc_hasLimit [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
     HasLimit (vTransc V h htran) (algebraMap K (RatFunc K) ∘ a) RatFunc.X := by
@@ -1053,23 +1075,7 @@ theorem vTransc_hasLimit [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
   simp_rw [hv]
   obtain ⟨j, hj⟩ := exists_gt i
   refine ⟨j, hj.le, ?_⟩
-  obtain ⟨k, hk⟩ := exists_gt j
-  rw [vPoly_eq V a _ j (by
-    suffices ∀ l, j ≤ l → V (a j - a i) = V (a l - a i) by simpa
-    intro l hl
-    rw [V.map_sub_swap (a j), V.map_sub_swap (a l)]
-    apply h.lemma2' V hj (hj.trans_le hl)
-  )]
-  rw [vPoly_eq V a _ k (by
-    suffices ∀ l, k ≤ l → V (a k - a j) = V (a l - a j) by simpa
-    intro l hl
-    rw [V.map_sub_swap (a k), V.map_sub_swap (a l)]
-    apply h.lemma2' V hk (hk.trans_le hl)
-  )]
-  suffices V (a j - a i) ≠ V (a k - a j) by simpa
-  apply ne_of_gt
-  rw [V.map_sub_swap (a k), V.map_sub_swap _ (a i)]
-  apply h hj hk
+  exact vPoly_not_const V h i j hj
 
 theorem vTransc_exists_close [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
@@ -1462,3 +1468,89 @@ def vAlg [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     have hq : (q % p0).degree < p0.degree := (vAlg_mod_p_degree V a p0 h2 _)
     exact vPoly_add V a _ _ (h1 _ hp) (h1 _ hq)
       (h1 _ ((Polynomial.degree_add_le _ _).trans_lt (max_lt hp hq)))
+
+@[simp]
+theorem vAlg_polynomial [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    (p : K[X]) :
+    vAlg V h p0 h1 h2 (AdjoinRoot.mk p0 p) = vPoly V a (p % p0) := by
+  simp [vAlg]
+
+@[simp]
+theorem vAlg_C [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    (p : K) :
+    vAlg V h p0 h1 h2 p = V p := by
+  rw [show vAlg V h p0 h1 h2 p = vAlg V h p0 h1 h2 (AdjoinRoot.mk p0 (Polynomial.C p)) from rfl]
+  rw [vAlg_polynomial]
+  rw [(Polynomial.mod_eq_self_iff
+      (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2))).mpr
+      (lt_of_le_of_lt (Polynomial.degree_C_le) (by simpa using (vAlg_p_degree_pos V a p0 h2)))]
+  simp [vPoly]
+
+instance vAlg_hasExtension [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i))) :
+    Valuation.HasExtension V (vAlg V h p0 h1 h2) where
+  val_isEquiv_comap := by
+    intro x y
+    simp
+
+theorem vAlg_valueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i))) :
+    Set.range (vAlg V h p0 h1 h2) = (vAlg V h p0 h1 h2) '' (⊥ : Subalgebra K (AdjoinRoot p0)) := by
+  apply Set.Subset.antisymm ?_ (by simp)
+  intro v
+  suffices ∀ p, vAlg V h p0 h1 h2 p = v → ∃ a, V a = v by simpa
+  intro p
+  induction p using AdjoinRoot.induction_on with | ih p
+  suffices vPoly V a (p % p0) = v → ∃ a, V a = v by simpa
+  intro h
+  rw [← h]
+  obtain ⟨l, hl⟩ := h1 (p % p0) (vAlg_mod_p_degree V a p0 h2 _)
+  use (p % p0).eval (a l)
+  rw [vPoly_eq V a (p % p0) l hl]
+
+theorem vAlg_hasLimit [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (hlimit : ∀ x : K, ¬ HasLimit V a x)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    [Fact (Irreducible p0)] :
+    HasLimit (vAlg V h p0 h1 h2) (algebraMap _ _ ∘ a) (AdjoinRoot.root p0) := by
+  unfold HasLimit
+  intro i
+  obtain ⟨j, hj⟩ := exists_gt i
+  rw [((IsPseudoConv.iff V (vAlg V h p0 h1 h2)).mp h).γ_eq _ hj]
+  simp_rw [Function.comp_apply]
+  rw [show algebraMap K (AdjoinRoot p0) (a i) - algebraMap K (AdjoinRoot p0) (a j) =
+    (AdjoinRoot.root p0 - algebraMap K (AdjoinRoot p0) (a j)) -
+    (AdjoinRoot.root p0 - algebraMap K (AdjoinRoot p0) (a i)) by abel]
+  refine (Valuation.map_sub_eq_of_lt_right _ ?_).symm
+  obtain h' := (IsPseudoConv.iff V (vAlg V h p0 h1 h2)).mp h
+  refine ((h'.const_sub _ _).lemma1 (vAlg V h p0 h1 h2)).resolve_right ?_ i j hj
+
+  by_contra!
+  obtain ⟨l, hl, _⟩ := this
+  have hl : ∀ (i : ι), l ≤ i →
+    vAlg V h p0 h1 h2 (AdjoinRoot.mk p0 (Polynomial.X - Polynomial.C (a l))) =
+    vAlg V h p0 h1 h2 (AdjoinRoot.mk p0 (Polynomial.X - Polynomial.C (a i))) := by simpa using hl
+  simp_rw [vAlg_polynomial] at hl
+  have h1 (c : K) : (Polynomial.X - Polynomial.C c) % p0 = Polynomial.X - Polynomial.C c := by
+    refine (Polynomial.mod_eq_self_iff
+      (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2))).mpr ?_
+    simpa using vAlg_one_lt_degree V h hlimit p0 h2
+  simp_rw [h1] at hl
+  contrapose! hl
+  obtain ⟨j, hj⟩ := exists_gt l
+  use j
+  constructor
+  · exact hj.le
+  exact vPoly_not_const V h l j hj
