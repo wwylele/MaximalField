@@ -443,6 +443,12 @@ theorem IsPseudoConv.hasLimit_iff {a : ι → K} (h : IsPseudoConv V a) {x : K} 
 def IsImmediate : Prop := Set.range V' = V' '' (⊥ : Subalgebra K L)
   ∧ Function.Surjective (IsLocalRing.ResidueField.map (algebraMap V.integer V'.integer))
 
+def IsMaximal.{u, v} {K : Type u} [Field K]
+    {Γ : Type v} [LinearOrderedCommGroupWithZero Γ] (V : Valuation K Γ) :=
+  ∀ (L : Type u) (Γ' : Type v) (_ : Field L) (_ : LinearOrderedCommGroupWithZero Γ')
+  (V' : Valuation L Γ') (_ : Algebra K L) (_ : Valuation.HasExtension V V')
+  (_ : IsImmediate V V'), Function.Surjective (algebraMap K L)
+
 theorem IsImmediate.exists_lt (h : IsImmediate V V') {z : L}
     (hz : z ∉ (⊥ : Subalgebra K L)) (g : K) :
     ∃ g' : K, V' (z - algebraMap K L g') < V' (z - algebraMap K L g) := by
@@ -481,7 +487,7 @@ theorem IsImmediate.exists_lt (h : IsImmediate V V') {z : L}
   · simp
 
 theorem IsImmediate.theorem1 (h : IsImmediate V V') {z : L} (hz : z ∉ (⊥ : Subalgebra K L)) :
-    ∃ (s : Set Γ'ᵒᵈ) (_ : NoMaxOrder s) (a : s → K), IsPseudoConv V a ∧
+    ∃ (s : Set Γ'ᵒᵈ) (_ : s.Nonempty) (_ : NoMaxOrder s) (a : s → K), IsPseudoConv V a ∧
     (∀ x : K, ¬ HasLimit V a x) ∧ (HasLimit V' (algebraMap K L ∘ a) z) := by
   let s := Set.range fun a ↦ OrderDual.toDual <| V' (z - algebraMap K L a)
   have hmax : ∀ (g : ↑s), ∃ g', g < g' := by
@@ -490,7 +496,7 @@ theorem IsImmediate.theorem1 (h : IsImmediate V V') {z : L} (hz : z ∉ (⊥ : S
     obtain ⟨b, hb⟩ := h.exists_lt V V' hz a
     exact ⟨⟨OrderDual.toDual <| V' (z - algebraMap K L b), by simp [s]⟩, by simpa [← ha] using hb⟩
   have : NoMaxOrder ↑s := ⟨hmax⟩
-  refine ⟨s, inferInstance, ?_⟩
+  refine ⟨s, (by simpa [s] using Set.range_nonempty _), inferInstance, ?_⟩
   have hmem (i : s) : ∃ a, OrderDual.toDual (V' (z - algebraMap K L a)) = i.val := i.prop
   choose a ha using hmem
   have haanti {i j : s} (hij : i < j) :

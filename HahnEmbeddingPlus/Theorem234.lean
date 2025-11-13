@@ -453,6 +453,11 @@ theorem vTransc_residueImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv 
       exact hsp2
     · exact hsq0'
 
+theorem vTransc_isImmediate [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (htran : ∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) :
+    IsImmediate V (vTransc V h htran) :=
+  ⟨vTransc_valueImmediate V h htran, vTransc_residueImmediate V h htran⟩
+
 theorem vPoly_equiv [Nonempty ι] {a : ι → K}
     (h : IsPseudoConv V a)
     (map : K[X] →ₐ[K] L)
@@ -479,7 +484,7 @@ theorem vPoly_equiv [Nonempty ι] {a : ι → K}
 
   have hconst (n : ℕ) (hn : n ∈ Finset.Ico 1 (p.natDegree + 1)) :
       ∃ l, ∀ i, l ≤ i → V' (algebraMap _ _ ((p.hasseDeriv n).eval (a l))) =
-      V' (algebraMap _ _  ((p.hasseDeriv n).eval (a i))) := by
+      V' (algebraMap _ _ ((p.hasseDeriv n).eval (a i))) := by
     simp_rw [Valuation.HasExtension.val_map_eq_iff V V']
     exact htran _ <| (Polynomial.natDegree_hasseDeriv_le _ _).trans (by simp)
   choose! fl hfl using hconst
@@ -581,8 +586,8 @@ theorem theorem2_equiv [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     rw [RatFunc.algebraMap_eq_C] at hp2 hq2
     simp [hp2, ← hq2]
   intro x y hxy
-  exact vPoly_equiv V V' h ((Algebra.ofId K[X] (RatFunc K)).restrictScalars (R := K))
-    (by simpa using hlimit) _ _ hxy (fun q _ ↦ htran q)
+  exact vPoly_equiv V V' h ((Algebra.ofId K[X] (RatFunc K)).restrictScalars K)
+    (by simpa using hlimit) x y hxy (fun q _ ↦ htran q)
 
 /-def AdjoinRoot.liftMonoidWithZeroHom {R S : Type*} [CommRing R] [MonoidWithZero S]
     (p : Polynomial R) (f : Polynomial R →*₀ S) (h : ∀ a b, p ∣ a - b → f a = f b) :
@@ -892,9 +897,16 @@ theorem vAlg_residueImmediate [hι : Nonempty ι] {a : ι → K} (h : IsPseudoCo
       (Polynomial.ne_zero_of_degree_gt (vAlg_p_degree_pos V a p0 h2))).mpr ?_
   exact lt_of_le_of_lt Polynomial.degree_C_le (vAlg_p_degree_pos V a p0 h2)
 
+theorem vAlg_isImmediate [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
+    (p0 : K[X])
+    (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
+    (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
+    [Fact (Irreducible p0)] :
+    IsImmediate V (vAlg V h p0 h1 h2) :=
+  ⟨vAlg_valueImmediate V h p0 h1 h2, vAlg_residueImmediate V h p0 h1 h2⟩
+
 theorem theorem3_equiv [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
     (p0 : K[X]) [Fact (Irreducible p0)]
-    (hlimit : ∀ x : K, ¬ HasLimit V a x)
     (h1 : ∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i)))
     (h2 : ¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))
     (V' : Valuation (AdjoinRoot p0) Γ') [Valuation.HasExtension V V']
@@ -920,7 +932,132 @@ theorem theorem3_equiv [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
       apply Polynomial.natDegree_mod_lt
       apply Nat.ne_of_gt
       rw [Polynomial.natDegree_pos_iff_degree_pos]
-      apply lt_trans (by simp) (vAlg_one_lt_degree V h hlimit p0 h2)
+      exact vAlg_p_degree_pos V a p0 h2
     )
   suffices AdjoinRoot.mkₐ p0 (x % p0) = AdjoinRoot.mkₐ p0 x by simpa [this] using h
   simp [EuclideanDomain.mod_eq_sub_mul_div]
+
+omit [NoMaxOrder ι] in
+theorem trans_or_alg [Nonempty ι] (a : ι → K) :
+    (∀ p : K[X], ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ∨
+    (∃ p0 : K[X], Irreducible p0 ∧
+      (∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ∧
+      (¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))) := by
+
+  let ps := {p : K[X] | ¬∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))}
+  have hunit (p : K[X]) (hp : p ∈ ps) : ¬ IsUnit p := by
+    contrapose! hp
+    obtain ⟨r, _, hr⟩ := Polynomial.isUnit_iff.mp hp
+    simp [← hr, ps]
+
+  by_cases hnonempty : ps.Nonempty
+  · right
+    refine ⟨Polynomial.degree_lt_wf.min ps hnonempty, ?_, ?_, ?_⟩
+    · obtain hpmem := Polynomial.degree_lt_wf.min_mem ps hnonempty
+      have hp0 : Polynomial.degree_lt_wf.min ps hnonempty ≠ 0 := by
+        contrapose! hpmem with h0
+        rw [h0]
+        simp [ps]
+      rw [irreducible_iff]
+      constructor
+      · exact hunit _ hpmem
+      intro u v hp
+      have huvmem : u ∈ ps ∨ v ∈ ps := by
+        contrapose! hpmem with huvmem
+        rw [hp]
+        simp_rw [ps, Set.notMem_setOf_iff, not_not] at huvmem ⊢
+        obtain ⟨⟨ul, hu⟩, ⟨vl, hv⟩⟩ := huvmem
+        use max ul vl
+        intro i hi
+        simp_rw [Polynomial.eval_mul, map_mul]
+        rw [← hu (max ul vl) (by simp)]
+        rw [← hv (max ul vl) (by simp)]
+        congrm $(hu i (by order)) * $(hv i (by order))
+      by_contra!
+      simp_rw [Polynomial.isUnit_iff_degree_eq_zero] at this
+      obtain ⟨hu, hv⟩ := this
+      have hu' : 0 < u.degree := by
+        apply lt_of_le_of_ne ?_ (Ne.symm hu)
+        refine Polynomial.zero_le_degree_iff.mpr ?_
+        contrapose! hp0
+        simp [hp, hp0]
+      have hv' : 0 < v.degree := by
+        apply lt_of_le_of_ne ?_ (Ne.symm hv)
+        refine Polynomial.zero_le_degree_iff.mpr ?_
+        contrapose! hp0
+        simp [hp, hp0]
+      have hu'' : u.degree ≠ ⊥ := by
+        contrapose! hu'
+        simp [hu']
+      have hv'' : v.degree ≠ ⊥ := by
+        contrapose! hv'
+        simp [hv']
+      obtain hdegree := congrArg Polynomial.degree hp
+      rw [Polynomial.degree_mul] at hdegree
+      obtain hmem | hmem := huvmem
+      <;> obtain hle := Polynomial.degree_lt_wf.not_lt_min _ hnonempty hmem
+      <;> rw [hdegree, not_lt] at hle
+      · conv_rhs at hle => rw [← add_zero (Polynomial.degree _)]
+        rw [WithBot.add_le_add_iff_left (by assumption)] at hle
+        exact (not_lt.mpr hle) hv'
+      · conv_rhs at hle => rw [← zero_add (Polynomial.degree _)]
+        rw [WithBot.add_le_add_iff_right (by assumption)] at hle
+        exact (not_lt.mpr hle) hu'
+    · intro p hp
+      contrapose hp
+      apply Polynomial.degree_lt_wf.not_lt_min ps hnonempty (by simpa [ps] using hp)
+    · simpa [ps] using Polynomial.degree_lt_wf.min_mem ps hnonempty
+  · left
+    intro p
+    contrapose! hnonempty with hp
+    use p
+    simpa [ps] using hp
+
+
+theorem theorem4.{u, v} {K : Type u} [Field K]
+    {Γ : Type v} [LinearOrderedCommGroupWithZero Γ] (V : Valuation K Γ) :
+    IsMaximal V ↔
+    ∀ (ι : Type v) (a : ι → K) (_ : LinearOrder ι) (_ : NoMaxOrder ι) (_ : Nonempty ι),
+    IsPseudoConv V a → ∃ x : K, HasLimit V a x := by
+  unfold IsMaximal
+  constructor
+  · contrapose!
+    rintro ⟨_, a, _, _ ,_, ha, hx⟩
+    obtain htran | ⟨p0, hirr, h1, h2⟩ := trans_or_alg V a
+    · refine ⟨RatFunc K, Γ, inferInstance, inferInstance, vTransc V ha htran, inferInstance,
+        inferInstance, vTransc_isImmediate V ha htran, ?_⟩
+      suffices ∃ x, ∀ (c : K), RatFunc.C c ≠ x by simpa [Function.Surjective]
+      refine ⟨RatFunc.X, fun c ↦ ?_⟩
+      by_contra! heq
+      obtain h0 | h0 := eq_or_ne c 0
+      · apply_fun RatFunc.eval (RingHom.id K) 1 at heq
+        simp [h0] at heq
+      · apply_fun RatFunc.eval (RingHom.id K) 0 at heq
+        simp [h0] at heq
+    · have : Fact (Irreducible p0) := ⟨hirr⟩
+      refine ⟨AdjoinRoot p0, Γ, inferInstance, inferInstance, vAlg V ha p0 h1 h2, inferInstance,
+        inferInstance, vAlg_isImmediate V ha p0 h1 h2, ?_⟩
+      suffices ∃ x, ∀ (c : K), AdjoinRoot.of p0 c ≠ x by simpa [Function.Surjective]
+      refine ⟨AdjoinRoot.root p0, fun c ↦ ?_⟩
+      rw [irreducible_iff] at hirr
+      contrapose! hirr with heq
+      apply_fun (Polynomial.aeval · p0) at heq
+      have hc : p0.eval c = 0 := by simpa [← AdjoinRoot.algebraMap_eq] using heq
+      rw [← Polynomial.IsRoot, ← Polynomial.dvd_iff_isRoot] at hc
+      obtain ⟨q, hq⟩ := hc
+      intro _
+      refine ⟨(Polynomial.X - Polynomial.C c), q, hq, ?_, ?_⟩
+      · apply Polynomial.not_isUnit_of_degree_pos
+        simp
+      · apply Polynomial.not_isUnit_of_degree_pos
+        obtain hpdegree := vAlg_one_lt_degree V ha hx p0 h2
+        apply_fun Polynomial.degree at hq
+        have : 1 + 0 < 1 + q.degree := by simpa [hq, Polynomial.degree_mul] using hpdegree
+        exact pos_of_lt_add_right this
+  · contrapose!
+    rintro ⟨L, Γ', _, _, V', _, _, himm, hsurj⟩
+    obtain ⟨z, hz⟩ : ∃ z, ∀ (x : K), algebraMap K L x ≠ z := by
+      simpa [Function.Surjective] using hsurj
+    have hz : z ∉ (⊥ : Subalgebra K L) := by simpa [Algebra.mem_bot] using hz
+    obtain ⟨s, hs, _, a, ha, hlimit, _⟩ := himm.theorem1 V V' hz
+    exact ⟨s, a, inferInstance, inferInstance, (by simpa using hs), ha, hlimit⟩
