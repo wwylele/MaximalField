@@ -1,10 +1,10 @@
-name = "HahnEmbeddingPlus"
+name = "MaximalField"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["HahnEmbeddingPlus"]
+defaultTargets = ["MaximalField"]
 
 [leanOptions]
-pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+pp.unicode.fun = true                 # pretty-prints `fun a ↦ b`
 autoImplicit = false
 relaxedAutoImplicit = false
 weak.linter.mathlibStandardSet = true
@@ -15,4 +15,4 @@ name = "mathlib"
 scope = "leanprover-community"
 
 [[lean_lib]]
-name = "HahnEmbeddingPlus"
+name = "MaximalField"

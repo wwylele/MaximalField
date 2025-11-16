@@ -1,4 +1,4 @@
-# HahnEmbeddingPlus
+# MaximalField
 
 ## GitHub configuration
 
