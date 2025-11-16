@@ -449,6 +449,60 @@ def IsMaximal.{u, v} {K : Type u} [Field K]
   (V' : Valuation L Γ') (_ : Algebra K L) (_ : Valuation.HasExtension V V')
   (_ : IsImmediate V V'), Function.Surjective (algebraMap K L)
 
+theorem IsImmediate.id : IsImmediate V V := by
+  constructor
+  · simp
+  · simpa using Function.surjective_id
+
+theorem IsImmediate.trans {A B C ΓA ΓB ΓC : Type*} [Field A] [Field B] [Field C]
+    [Algebra A B] [Algebra B C] [Algebra A C] [IsScalarTower A B C]
+    [LinearOrderedCommGroupWithZero ΓA]
+    [LinearOrderedCommGroupWithZero ΓB]
+    [LinearOrderedCommGroupWithZero ΓC]
+    {VA : Valuation A ΓA}
+    {VB : Valuation B ΓB}
+    {VC : Valuation C ΓC}
+    [hAB : VA.HasExtension VB] [hBC : VB.HasExtension VC]
+    (hABimm : IsImmediate VA VB) (hBCimm : IsImmediate VB VC) :
+    have := Valuation.HasExtension.trans VA VB VC
+    IsImmediate VA VC := by
+  obtain ⟨hABv, hABr⟩ := hABimm
+  obtain ⟨hBCv, hBCr⟩ := hBCimm
+  constructor
+  · rw [hBCv]
+    simp_rw [Algebra.coe_bot]
+    rw [IsScalarTower.algebraMap_eq A B C, RingHom.coe_comp, Set.range_comp]
+    rw [← Set.image_comp]
+    rw [Algebra.coe_bot, Set.ext_iff] at hABv
+    ext c
+    simp only [Set.mem_image, Set.mem_range, exists_exists_eq_and, Function.comp_apply]
+    constructor
+    · rintro ⟨b, hb⟩
+      rw [← hb]
+      simp_rw [Valuation.HasExtension.val_map_eq_iff VB VC]
+      specialize hABv (VB b)
+      simpa using hABv
+    · rintro ⟨a, ha⟩
+      simp [← ha, Valuation.HasExtension.val_map_eq_iff VB VC]
+  · intro c
+    induction c using IsLocalRing.ResidueField.ind with | residue c
+    obtain ⟨b, hb⟩ := hBCr ((IsLocalRing.residue VC.integer) c)
+    induction b using IsLocalRing.ResidueField.ind with | residue b
+    rw [IsLocalRing.ResidueField.map_residue] at hb
+    obtain ⟨a, ha⟩ := hABr ((IsLocalRing.residue VB.integer) b)
+    use a
+    induction a using IsLocalRing.ResidueField.ind with | residue a
+    have := Valuation.HasExtension.trans VA VB VC
+    have htrans : (algebraMap VA.integer VC.integer) =
+        (algebraMap ↥VB.integer ↥VC.integer) ∘ (algebraMap ↥VA.integer ↥VB.integer) := by
+      ext a
+      simp [IsScalarTower.algebraMap_eq A B C]
+    rw [IsLocalRing.ResidueField.map_residue] at ha
+    rw [IsLocalRing.ResidueField.map_residue, ← hb]
+    simp only [htrans, Function.comp_apply]
+    simp_rw [← IsLocalRing.ResidueField.map_residue (algebraMap ↥VB.integer ↥VC.integer)]
+    rw [ha]
+
 theorem IsImmediate.exists_lt (h : IsImmediate V V') {z : L}
     (hz : z ∉ (⊥ : Subalgebra K L)) (g : K) :
     ∃ g' : K, V' (z - algebraMap K L g') < V' (z - algebraMap K L g) := by
@@ -490,12 +544,12 @@ theorem IsImmediate.theorem1 (h : IsImmediate V V') {z : L} (hz : z ∉ (⊥ : S
     ∃ (s : Set Γ'ᵒᵈ) (_ : s.Nonempty) (_ : NoMaxOrder s) (a : s → K), IsPseudoConv V a ∧
     (∀ x : K, ¬ HasLimit V a x) ∧ (HasLimit V' (algebraMap K L ∘ a) z) := by
   let s := Set.range fun a ↦ OrderDual.toDual <| V' (z - algebraMap K L a)
-  have hmax : ∀ (g : ↑s), ∃ g', g < g' := by
+  have hmax : ∀ (g : s), ∃ g', g < g' := by
     rintro ⟨g, hg⟩
     obtain ⟨a, ha⟩ := Set.mem_range.mp hg
     obtain ⟨b, hb⟩ := h.exists_lt V V' hz a
     exact ⟨⟨OrderDual.toDual <| V' (z - algebraMap K L b), by simp [s]⟩, by simpa [← ha] using hb⟩
-  have : NoMaxOrder ↑s := ⟨hmax⟩
+  have : NoMaxOrder s := ⟨hmax⟩
   refine ⟨s, (by simpa [s] using Set.range_nonempty _), inferInstance, ?_⟩
   have hmem (i : s) : ∃ a, OrderDual.toDual (V' (z - algebraMap K L a)) = i.val := i.prop
   choose a ha using hmem

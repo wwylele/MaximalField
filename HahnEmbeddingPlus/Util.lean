@@ -237,6 +237,40 @@ theorem Valuation.map_sub_of_distinct_val {R : Type*} {Γ₀ : Type*}
   rw [Valuation.map_add_of_distinct_val v ?_] <;> rw [Valuation.map_neg]
   exact h
 
+/-variable {A B C ΓA ΓB ΓC : Type*} [CommRing A] [CommRing B] [Ring C]
+  [LinearOrderedCommMonoidWithZero ΓA]
+  [LinearOrderedCommMonoidWithZero ΓB]
+  [LinearOrderedCommMonoidWithZero ΓC]
+  [Algebra A B] [Algebra B C]
+  (VA : Valuation A ΓA)
+  (VB : Valuation A ΓB)
+  (VC : Valuation A ΓC)
+  [VA.HasExtension VB] [VB.HasExtension VC]-/
+
+def Algebra.trans (A B C : Type*) [CommSemiring A] [CommSemiring B] [Semiring C]
+    [Algebra A B] [Algebra B C] :
+  Algebra A C := Algebra.compHom C (algebraMap A B)
+
+instance Algebra.isScalarTower (A B C : Type*) [CommSemiring A] [CommSemiring B] [Semiring C]
+    [Algebra A B] [Algebra B C] :
+  let := Algebra.trans A B C
+  IsScalarTower A B C := IsScalarTower.of_compHom A B C
+
+theorem Valuation.HasExtension.trans {A B C ΓA ΓB ΓC : Type*} [CommRing A] [CommRing B] [Ring C]
+    [Algebra A B] [Algebra B C] [Algebra A C] [IsScalarTower A B C]
+    [LinearOrderedCommMonoidWithZero ΓA]
+    [LinearOrderedCommMonoidWithZero ΓB]
+    [LinearOrderedCommMonoidWithZero ΓC]
+    (VA : Valuation A ΓA)
+    (VB : Valuation B ΓB)
+    (VC : Valuation C ΓC)
+    [hAB : VA.HasExtension VB] [hBC : VB.HasExtension VC] :
+    VA.HasExtension VC where
+  val_isEquiv_comap := by
+    rw [IsScalarTower.algebraMap_eq A B C, Valuation.comap_comp]
+    apply Valuation.IsEquiv.trans hAB.val_isEquiv_comap
+    apply Valuation.IsEquiv.comap
+    exact hBC.val_isEquiv_comap
 
 variable {K : Type*} [Field K]
 variable {Γ : Type*} [LinearOrderedCommGroupWithZero Γ] (V : Valuation K Γ)
