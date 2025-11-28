@@ -603,7 +603,6 @@ theorem pigeonhole' {ι : Type*} {K : Type*}
     {a : ι → K} (s : Set ι) (hs : s.Infinite) (t : Set K) (ht : t.Finite) (h : a '' s ⊆ t) :
     ∃ k : K, (a ⁻¹' {k}).Infinite := by
   contrapose! hs
-  simp_rw [Set.not_infinite] at hs ⊢
   have : s ⊆ ⋃ k ∈ t, a ⁻¹' {k} := by
     intro x hx
     have : a x ∈ a '' s := ⟨x, hx, rfl⟩

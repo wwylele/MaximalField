@@ -26,7 +26,7 @@ end IsLocalRing.ResidueField
 lemma zero_le'' {G : Type*}
     [CommGroupWithZero G] [LinearOrder G] [IsOrderedMonoid G] [ZeroLEOneClass G]
     (a : G) : 0 ≤ a := by
-  simpa only [mul_zero, mul_one] using mul_le_mul_left' (zero_le_one' G) a
+  simpa only [mul_zero, mul_one] using mul_le_mul_right (zero_le_one' G) a
 
 @[simp]
 lemma not_lt_zero'' {G : Type*}
@@ -184,50 +184,6 @@ def AdjoinRoot.lift' {R S : Type*} [CommRing R] (p : Polynomial R)
 theorem AdjoinRoot.lift'_mk {R S : Type*} [CommRing R] (p : Polynomial R)
     (f : Polynomial R → S) (h : ∀ a b, p ∣ a - b → f a = f b) (x : Polynomial R) :
     lift' p f h (mk p x) = f x := rfl
-
-theorem Polynomial.mod_eq_of_dvd_sub {R : Type*} [Field R] {p₁ p₂ q : R[X]}
-    (h : q ∣ p₁ - p₂) : p₁ % q = p₂ % q := by
-  obtain rfl | hq := eq_or_ne q 0
-  · simpa [sub_eq_zero] using h
-  simp_rw [Polynomial.mod_def]
-  refine Polynomial.modByMonic_eq_of_dvd_sub ?_ ?_
-  · simp [Polynomial.Monic.def, hq]
-  rw [mul_comm]
-  exact (Polynomial.C_mul_dvd (by simpa using hq)).mpr h
-
-theorem Polynomial.degree_mod_lt {R : Type*} [Field R] (p : R[X]) {q : R[X]} (hq : q ≠ 0) :
-    (p % q).degree < q.degree := by
-  rw [Polynomial.mod_def]
-  refine (Polynomial.degree_modByMonic_lt p ?_).trans_eq (by simp)
-  · simp [Polynomial.Monic.def, hq]
-
-theorem Polynomial.add_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
-    (p₁ + p₂) % q = p₁ % q + p₂ % q := by
-  simp_rw [Polynomial.mod_def]
-  rw [Polynomial.add_modByMonic]
-
-theorem Polynomial.sub_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
-    (p₁ - p₂) % q = p₁ % q - p₂ % q := by
-  simp_rw [Polynomial.mod_def]
-  rw [Polynomial.sub_modByMonic]
-
-theorem Polynomial.mul_modByMonic {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
-    (p₁ * p₂) %ₘ q = ((p₁ %ₘ q) * (p₂ %ₘ q)) %ₘ q := by
-  by_cases! h : ¬ q.Monic
-  · simp [Polynomial.modByMonic_eq_of_not_monic, h]
-  apply Polynomial.modByMonic_eq_of_dvd_sub h
-  rw [show p₁ * p₂ - p₁ %ₘ q * (p₂ %ₘ q) =
-    (p₁ %ₘ q) * (p₂ - p₂ %ₘ q) + p₂ * (p₁ - p₁ %ₘ q)  by ring]
-  apply dvd_add
-  all_goals
-  · apply dvd_mul_of_dvd_right
-    rw [Polynomial.modByMonic_eq_sub_mul_div _ h]
-    simp
-
-theorem Polynomial.mul_mod {R : Type*} [Field R] (p₁ p₂ q : R[X]) :
-    (p₁ * p₂) % q = ((p₁ % q) * (p₂ % q)) % q := by
-  simp_rw [Polynomial.mod_def]
-  rw [Polynomial.mul_modByMonic]
 
 theorem Valuation.map_sub_of_distinct_val {R : Type*} {Γ₀ : Type*}
     [Ring R] [LinearOrderedCommMonoidWithZero Γ₀]

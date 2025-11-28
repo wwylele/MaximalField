@@ -352,7 +352,6 @@ theorem vTransc_exists_close' [Nonempty ι] {a : ι → K} (h : IsPseudoConv V a
   have hp : (p : RatFunc K) ≠ 0 := by
     change (algebraMap _ _) p ≠ 0
     simpa using hp
-
   have hp : vTransc V h htran p ≠ 0 := (vTransc V h htran).zero_iff.ne.mpr hp
   have hmem : vTransc V h htran p ∈ Set.range (vTransc V h htran) := by simp [vTransc]
   rw [vTransc_valueImmediate] at hmem
@@ -471,29 +470,24 @@ theorem vPoly_equiv [Nonempty ι] {a : ι → K}
     have hpk : V k = V x := by simpa [← hx, vPoly] using hpk
     rw [← Valuation.HasExtension.val_map_eq_iff V V' _ _] at hpk
     simpa [← hx, Polynomial.C_eq_algebraMap] using hpk.symm
-
   have hlimit' : ∀ (i : ι), V' (map Polynomial.X - algebraMap K L (a i)) =
       γ V' (algebraMap K L ∘ a) i := by
     simpa [HasLimit, RatFunc.algebraMap_eq_C, Function.comp_apply] using hlimit
-
   have hsum (i : ι) : p - Polynomial.C (p.eval (a i)) = ∑ n ∈ Finset.Ico 1 (p.natDegree + 1),
       Polynomial.C ((p.hasseDeriv n).eval (a i)) * (Polynomial.X - Polynomial.C (a i)) ^ n := by
     nth_rw 1 [Polynomial.taylor_expand (a i) p]
     rw [Finset.sum_range_eq_add_Ico _ (by simp)]
     simp
-
   have hconst (n : ℕ) (hn : n ∈ Finset.Ico 1 (p.natDegree + 1)) :
       ∃ l, ∀ i, l ≤ i → V' (algebraMap _ _ ((p.hasseDeriv n).eval (a l))) =
       V' (algebraMap _ _ ((p.hasseDeriv n).eval (a i))) := by
     simp_rw [Valuation.HasExtension.val_map_eq_iff V V']
     exact htran _ <| (Polynomial.natDegree_hasseDeriv_le _ _).trans (by simp)
   choose! fl hfl using hconst
-
   have hanti : StrictAnti fun i ↦ V' (map Polynomial.X - algebraMap K L (a i)) := by
     simp_rw [hlimit']
     apply IsPseudoConv.γ_strictAnti
     exact (IsPseudoConv.iff V V').mp h
-
   have hexist : ∃ n ∈ Finset.Ico 1 (p.natDegree + 1),
       V' (algebraMap _ _ ((p.hasseDeriv n).eval (a (fl n)))) ≠ 0 := by
     use p.natDegree
@@ -502,10 +496,8 @@ theorem vPoly_equiv [Nonempty ι] {a : ι → K}
     suffices p ≠ 0 by simpa [Polynomial.hasseDeriv_natDegree_eq_C]
     contrapose! hp0
     simp [hp0]
-
   obtain ⟨m, hm, hm0, l, hl⟩ := lemma4₀ (Finset.Ico 1 (p.natDegree + 1))
     (fun n ↦ V' (algebraMap _ _ ((p.hasseDeriv n).eval (a (fl n))))) hexist hanti
-
   have hdom (i : ι) (hi : l ≤ i) (hfli : ∀ n ∈ Finset.Ico 1 (p.natDegree + 1), fl n ≤ i) :
       V' (map p - algebraMap _ _ (p.eval (a i))) =
       V' (algebraMap _ _ ((p.hasseDeriv m).eval (a (fl m)))) *
@@ -527,12 +519,10 @@ theorem vPoly_equiv [Nonempty ι] {a : ι → K}
     rw [← hfl m hm i (hfli m hm)]
     rw [← hfl n hn' i (hfli n hn')]
     simpa using hl i hi n hn
-
   obtain ⟨pl, hpl⟩ := htran p (le_refl _)
   rw [vPoly_eq V a p pl hpl] at hpk
   rw [← Valuation.HasExtension.val_map_eq_iff V V'] at hpk
   rw [hpk]
-
   let i := max pl <| max l ((Finset.Ico 1 (p.natDegree + 1)).sup' (by simpa using hp0) fl)
   have hipl : pl ≤ i := by order
   have hil : l ≤ i := by order
@@ -544,7 +534,6 @@ theorem vPoly_equiv [Nonempty ι] {a : ι → K}
   obtain ⟨j, hj⟩ := exists_gt i
   obtain hdomi := hdom i hil hifl
   obtain hdomj := hdom j (hil.trans hj.le) (fun n hn ↦ (hifl n hn).trans hj.le)
-
   by_contra! hne
   simp_rw [← Valuation.HasExtension.val_map_eq_iff V V'] at hpl
   obtain hnei := hpl i hipl ▸ hne
@@ -837,7 +826,6 @@ theorem vAlg_hasLimit [hι : Nonempty ι] {a : ι → K} (h : IsPseudoConv V a)
   refine (Valuation.map_sub_eq_of_lt_right _ ?_).symm
   obtain h' := (IsPseudoConv.iff V (vAlg V h p0 h1 h2)).mp h
   refine ((h'.const_sub _ _).lemma1 (vAlg V h p0 h1 h2)).resolve_right ?_ i j hj
-
   by_contra!
   obtain ⟨l, hl, _⟩ := this
   have hl : ∀ (i : ι), l ≤ i →
@@ -943,13 +931,11 @@ theorem trans_or_alg [Nonempty ι] (a : ι → K) :
     (∃ p0 : K[X], Irreducible p0 ∧
       (∀ p : K[X], p.degree < p0.degree → ∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))) ∧
       (¬∃ l, ∀ i, l ≤ i → V (p0.eval (a l)) = V (p0.eval (a i)))) := by
-
   let ps := {p : K[X] | ¬∃ l, ∀ i, l ≤ i → V (p.eval (a l)) = V (p.eval (a i))}
   have hunit (p : K[X]) (hp : p ∈ ps) : ¬ IsUnit p := by
     contrapose! hp
     obtain ⟨r, _, hr⟩ := Polynomial.isUnit_iff.mp hp
     simp [← hr, ps]
-
   by_cases hnonempty : ps.Nonempty
   · right
     refine ⟨Polynomial.degree_lt_wf.min ps hnonempty, ?_, ?_, ?_⟩
